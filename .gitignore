@@ -249,3 +249,5 @@ ModelManifest.xml
 /Deploy/log.csv
 /Deploy/Solution/*.json*
 /Deploy/Visualization/*.html
+/Lib/protobuf/lib
+/Lib/protobuf/include
