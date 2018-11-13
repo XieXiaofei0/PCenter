@@ -1,0 +1,15 @@
+{"author":"Xie Xiaofei","algorithm":"tabulocalsearch","thread":"1","cpu":"AMD Athlon(tm) X4 640 Processor 3.00GHz","ram":"4G","language":"C++","compiler":"VS2017","os":"Windows 10","problem":"PCenter","instance":"pmed7.n200e779p10.json","duration":"0.166000s","obj":0,"email":"","date":""}
+{
+ "centers": [
+  45,
+  1,
+  179,
+  72,
+  176,
+  163,
+  174,
+  94,
+  182,
+  101
+ ]
+}
