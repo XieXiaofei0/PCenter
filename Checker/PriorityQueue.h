@@ -153,7 +153,7 @@ public:
                           // TODO[szx][2]: what if the priority is negative?
                           //               pass an offset in constructor and add it to the priority in each push?
                           // put item into the queue.
-        void push(const T &e, Priority priority) {
+        void push(const T &e, Priority priority) {            //ques:存不存在priority在两者之间的可能
             container[priority].push_back(e);
             if (priority < firstNonEmptyIndex) { firstNonEmptyIndex = priority; }
             if (priority > lastNonEmptyIndex) { lastNonEmptyIndex = priority; }
@@ -169,14 +169,14 @@ public:
         T top() {
             //if (empty()) { throw PeekEmptyContainerException(); }
             updateFirstNonEmptyIndex();
-            return container[firstNonEmptyIndex].back();
+            return container[firstNonEmptyIndex].back();             //back（）：返回最后一个元素的值
         }
 
         // remove the item with highest priority.
-        void pop() {
+        void pop() { 
             //if (empty()) { return; }
             updateFirstNonEmptyIndex();
-            container[firstNonEmptyIndex].pop_back();
+            container[firstNonEmptyIndex].pop_back();              //pop_back():删除最后一个元素的值
         }
 
         bool empty() {
@@ -195,8 +195,8 @@ public:
         }
 
     protected:
-        void updateFirstNonEmptyIndex() {
-            for (; firstNonEmptyIndex <= lastNonEmptyIndex; ++firstNonEmptyIndex) {
+        void updateFirstNonEmptyIndex() {                        //Ques:如何更新？？？
+            for (; firstNonEmptyIndex <= lastNonEmptyIndex; ++firstNonEmptyIndex) {             
                 if (!container[firstNonEmptyIndex].empty()) { return; }
             }
         }

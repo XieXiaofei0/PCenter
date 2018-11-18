@@ -81,14 +81,14 @@ int main(int argc, char *argv[]) {
         chrono::steady_clock::time_point start = chrono::steady_clock::now();
         Dij dij(adjList, 0, maxWeight);
         cerr << "dijkstra init takes " << (chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - start).count() / 1000.0) << " seconds" << endl;
-        for (int n = 0; n < nodeNum; ++n) {
+        for (int n = 0; n < nodeNum; ++n) {       //对于每一个用户节点，利用DIijkstra算法找到与其他节点的最短路径，找出其中距离最短的服务节点即可，问题同geometrical graph
             if (isCenter[n]) { continue; }
             dij.reset(n);
             int closestCenter = dij.next([&](int node) { return isCenter[node]; });
             if (coverRadius < dij.getDist(closestCenter)) { coverRadius = dij.getDist(closestCenter); }
         }
         cerr << "dijkstra takes " << (chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - start).count() / 1000.0) << " seconds" << endl;
-    } else { // geometrical graph.
+    } else { // geometrical graph.                              //Question：对于每一个用户节点来说，取用的是最短服务边，但是最短服务边不一定是真实的服务边吧？
         objScale = GeometricalGraphObjScale;
         for (int n = 0; n < nodeNum; ++n) {
             double nx = input.graph().nodes(n).x();

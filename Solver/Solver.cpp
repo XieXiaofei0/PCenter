@@ -273,7 +273,7 @@ void Solver::init() {
         }
 
         Timer timer(30s);
-        constexpr bool IsUndirectedGraph = true;
+        constexpr bool IsUndirectedGraph = true;           //根据是否是无向图，无向图是否对称，进行选择Floyd
         IsUndirectedGraph
             ? Floyd::findAllPairsPaths_symmetric(aux.adjMat)
             : Floyd::findAllPairsPaths_asymmetric(aux.adjMat);
