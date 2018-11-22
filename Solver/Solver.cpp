@@ -328,7 +328,12 @@ bool Solver::optimize(Solution &sln, ID workerId) {
     // TODO[0]: replace the following random assignment with your own algorithm.
 
     InitialSolu();
+    
+    start_time = clock();
     TabuSearch(order);
+    end_time = clock();
+    elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
+    std::cout << "  elapsed_time(s):" << elapsed_time << endl;
 
     for (ID n = 0; n < centerNum; ++n) {
         centers[n] = ServiceNodes[n];
@@ -388,12 +393,6 @@ void Solver::TabuSearch(const int &order) {               //check:yes.      两个
 
         //找最好的邻域动作
         findbestAction(shorterlenNodes, bestactionTS, bestactionNTS);
-
-        //test
-        //if (iter == 92) {    //pemd40，rand=1542089240
-        //    std::cout << bestactionTS.addServiceNode << " " << bestactionTS.deleteSericeNodeIndex << " " << bestactionTS.NewFuntion << std::endl;
-        //    std::cout << bestactionNTS.addServiceNode << " " << bestactionNTS.deleteSericeNodeIndex << " " << bestactionNTS.NewFuntion << std::endl;
-        //}
 
         //判断是否满足解禁策略，若满足则进行禁忌动作并进行更新（F表，D表，禁忌表，Service数组）,并更新历史最优解
         int newfun = INF;    //便于更新历史最优解

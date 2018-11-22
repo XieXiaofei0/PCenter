@@ -10,7 +10,7 @@ int main() {
 
     Simulator sim;
     //for (int i = 0; i < 10; i++)sim.debug();
-    sim.benchmark(4);
+    sim.benchmark(2);
     //sim.parallelBenchmark(1);
     //sim.generateInstance();
     //for (int i = 1; i <= 40; ++i) { sim.convertPmedInstance("Instance/pmed/pmed", i); }

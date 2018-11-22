@@ -253,6 +253,10 @@ public:
     ID bestsolu;      //keep the best solution of history
     ID iter;          //Iterative counting
 
+    double start_time;
+    double end_time;
+    double elapsed_time;
+
     std::vector<int> ServiceNodes;               //Service nodes array
     std::vector<std::vector<int>> FsnodeTable;    //Nearest service node and secondary service node
     std::vector<std::vector<int>> DistanceTable;        //Distance of the nearest service node and secondary node
