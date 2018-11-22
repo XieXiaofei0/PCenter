@@ -31,7 +31,7 @@ int Solver::Cli::run(int argc, char * argv[]) {
         { EnvironmentPathOption(), nullptr },
         { ConfigPathOption(), nullptr },
         { LogPathOption(), nullptr }
-    });
+        });
 
     for (int i = 1; i < argc; ++i) { // skip executable name.
         auto mapIter = optionMap.find(argv[i]);
@@ -273,7 +273,7 @@ void Solver::init() {
         }
 
         Timer timer(30s);
-        constexpr bool IsUndirectedGraph = true;           //根据是否是无向图，无向图是否对称，进行选择Floyd
+        constexpr bool IsUndirectedGraph = true;
         IsUndirectedGraph
             ? Floyd::findAllPairsPaths_symmetric(aux.adjMat)
             : Floyd::findAllPairsPaths_asymmetric(aux.adjMat);
@@ -293,35 +293,391 @@ void Solver::init() {
 
     aux.coverRadii.init(nodeNum);
     fill(aux.coverRadii.begin(), aux.coverRadii.end(), Problem::MaxDistance);
+    // by See
+    int pos1 = env.instPath.find("d", 0);
+    int pos2 = env.instPath.find(".", 0);
+    cur_pmed_opt = optima_value[stoi(env.instPath.substr(pos1 + 1, pos2 - pos1 - 1)) - 1];
+    // end See
+}
+
+// function definitions
+void Solver::initializeGraph() { // 初始化
+    //自身到自身0，其余设置为+∞
+    solution.clear();
+    fm_best = INT_MAX; // 历史最佳目标函数值
+    fm_cur = INT_MAX; // 当前的目标函数值
+    Sc_cur = INT_MAX; // p+1状态的目标函数值
+    fm_expect = INT_MAX;
+    rand_pair_happened = 1;
+    // 全局变量也要初始化
+    list_tabu = new int*[N_v];
+    list_D = new int*[N_v];
+    D = new int*[N_v];
+    list_F = new int*[N_v];
+    F = new int*[N_v];
+    list_Nw = new int*[N_v];
+    Nw = new pair<int, int>[N_v];
+    Mf = new int[N_v];
+    list_Index = new int[N_v];
+    for (int i = 0; i < N_v; i++) {
+        list_tabu[i] = new int[N_v];
+        list_Nw[i] = new int[N_v];
+        list_D[i] = new int[2];
+        D[i] = new int[2];
+        list_F[i] = new int[2];
+        F[i] = new int[2];
+    }
+    for (int i = 0; i < N_v; i++) {
+        for (int j = 0; j < N_v; j++) {
+            if (i == j) {
+                list_tabu[i][j] = -1;
+                list_Nw[i][j] = 0;
+            } else {
+                if (i < j) { // 只赋值右上角
+                    list_tabu[i][j] = -2;
+                }
+            }
+        }
+        for (int j = 0; j < 2; j++) {
+            list_D[i][j] = INT_MAX;
+            D[i][j] = INT_MAX;
+            list_F[i][j] = -1;
+            F[i][j] = -1;
+        }
+    }
+    // calculate the Nw of each node.
+    for (int i = 0; i < N_v; i++) {
+        findNw(i);
+    }
+
+}
+
+void Solver::addFacility(int f) {
+    Sc_cur = 0;
+    solution.insert(f);
+    for (int v = 0; v < N_v; v++) {
+
+        int d_fv = aux.adjMat[f][v];
+        if (d_fv < list_D[v][0]) {
+            list_D[v][1] = list_D[v][0];
+            list_F[v][1] = list_F[v][0];
+            list_D[v][0] = d_fv;
+            list_F[v][0] = f;
+        } else {
+            if (d_fv < list_D[v][1]) {
+                list_D[v][1] = d_fv;
+                list_F[v][1] = f;
+                //cout << "f1:" << v<<",dist:" << list_D[v][1] << endl;
+            }
+        }
+        //cout << "v:" << v << ",dist:" << list_D[v][0] << "," << aux.adjMartrix[list_F[v][0]][v] <<",f0="<<list_F[v][0]
+            //<<",  to 65:"<<aux.adjMartrix[65][v] << endl;
+        if (list_D[v][0] > Sc_cur) {
+            Sc_cur = list_D[v][0];
+        }
+    }
+    //cout << "f______________________:" << f << endl;
+    //cout << "add = " << Sc_cur << endl;
+}
+
+int compareByDistance(const void* a, const void* b) { // 奇怪的地方：不能放到Solver里面
+    // 用于排序Nw，从小到大
+    pair<int, int> *p1 = (pair<int, int>*)a, *p2 = (pair<int, int>*)b;
+    return p1->second - p2->second;
+}
+
+void Solver::findNw(int w) {
+    for (int j = 0; j < N_v; j++) {
+        Nw[j].first = j; // first记录节点编号
+        Nw[j].second = aux.adjMat[w][j]; // second记录边长
+    }
+    // 排序并找出其服务点的下标k
+    qsort(Nw, N_v, sizeof(pair<int, int>), compareByDistance);
+    /*for (int i = 0; i < N_v; i++) {
+        cout << "Nw w:" << w << ",1st:" << Nw[i].first << ",2nd:" << Nw[i].second << endl;
+    }*/
+    for (int j = 0; j < N_v; j++) {
+        list_Nw[w][j] = Nw[j].first; // 因为长度已经从小到大排序，只记录节点编号
+        /*if (w == 0) {
+            cout << "N1[" << j << "]= " << list_Nw[w][j] << ",length=" << Nw[j].second << endl;
+        }*/
+    }
+}
+
+void Solver::findNwk(int s, int w) {
+    // 把所有的w的剩余节点加入到Nw中
+    // 清空原数据
+    Nwk.clear();
+    for (int k = 0; k < N_v; k++) {
+        //cout <<s<< "  边长：" << Nw[k].second<<" 另一端"<<Nw[k].first <<", 原始长度"<<list_D[w][0]<< endl;
+        if (list_Nw[w][k] != s && aux.adjMat[w][s] > aux.adjMat[w][list_Nw[w][k]]) {
+            Nwk.push_back(list_Nw[w][k]);
+        } else break;
+    }
+}
+
+void Solver::findLongestServeEdge() {
+    int max = -1;
+    longest_serve_edge.clear(); // 保证每一步都是空集
+    for (int i = 0; i < N_v; i++) {
+        if (max < list_D[i][0]) {
+            max = list_D[i][0];
+            longest_serve_edge.clear(); // 之前的全都清空
+            longest_serve_edge.push_back(make_pair(list_F[i][0], i)); // s , w
+        } else {
+            if (max == list_D[i][0]) {
+                longest_serve_edge.push_back(make_pair(list_F[i][0], i));
+            }
+        }
+    }
+}
+
+void Solver::initialzeASolution() {
+    int random_first_facility = rand() % N_v; // 随机取得第一个服务点
+    pair<int, int> s_w; // 记录最长服务边
+    int f_; // 记录待加入节点
+    int p_count = 1; // 记录已加入的服务点数目
+    addFacility(random_first_facility);
+    while (p_count != p) {
+        findLongestServeEdge();
+        s_w = longest_serve_edge[rand() % longest_serve_edge.size()];
+        findNwk(s_w.first, s_w.second);
+        f_ = Nwk[rand() % Nwk.size()];
+        if (solution.find(f_) == solution.end()) {
+            addFacility(f_);
+            p_count++;
+        }
+    }
+    fm_best = fm_cur = Sc_cur;
+    /*for (int f : solution) {
+        cout << ",sol: " << f;
+    }
+    cout << endl;*/
+    cout << "init best:" << fm_best << " , init size: " << solution.size() << endl;
+}
+
+int Solver::findMax() { // 计算目标函数值，后续可以和findLongestServeEdge优化
+    int max = 0;
+    for (int i = 0; i < N_v; i++) {
+        if (max < list_D[i][0]) {
+            max = list_D[i][0]; // 原则上服务节点到自身的边=0是不考虑的
+        }
+    }
+    return max;
+}
+
+int Solver::isTaboo(int f, int i, int step) {
+    // 给出一对交换对，判断禁忌与否
+    if (f > i) {
+        // 单禁忌表是右上角
+        swap(f, i);
+    }
+    if (list_tabu[f][i] < step || list_tabu[f][i] == -2) {
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
+void Solver::findNext(int v) {
+    //注意执行到该函数时，solution里面已经移除新加入的服务点
+    int tmp_distance = INT_MAX;
+    vector<int> second_closest_facility_set;
+    second_closest_facility_set.clear();
+    for (int f : solution) {
+        if (tmp_distance >= aux.adjMat[v][f] && f != list_F[v][0]) { // 找到最佳的次服务点而且不得和Fv0相同
+            if (tmp_distance == aux.adjMat[v][f]) {
+                second_closest_facility_set.push_back(f); // 同等候选者
+            } else {
+                second_closest_facility_set.clear(); // 优胜者
+                second_closest_facility_set.push_back(f);
+                tmp_distance = aux.adjMat[v][f];
+            }
+        }
+    }
+    int random_next_server_index = rand() % (second_closest_facility_set.size()); // 从候选者中随机选一个，更新F D表
+    list_F[v][1] = second_closest_facility_set[random_next_server_index];
+    list_D[v][1] = tmp_distance;
+
+}
+
+void Solver::removeFacility(int f) {
+    Sc_cur = 0;
+    solution.erase(f);
+    for (int v = 0; v < N_v; v++) {
+        if (list_F[v][0] == f) {
+            list_D[v][0] = list_D[v][1];
+            list_F[v][0] = list_F[v][1];
+            findNext(v);
+        } else {
+            if (list_F[v][1] == f) {
+                findNext(v);
+            }
+        }
+        if (list_D[v][0] > Sc_cur) {
+            Sc_cur = list_D[v][0];
+        }
+    }
+}
+
+void Solver::removeFacility_(int f) {
+    for (int i = 0; i < N_v; i++) {
+        list_D[i][0] = D[i][0];
+        list_D[i][1] = D[i][1];
+        list_F[i][0] = F[i][0];
+        list_F[i][1] = F[i][1];
+    }
+}
+
+// 寻找交换对，禁忌搜索方式
+void Solver::findPair_(int s, int w, int step) {
+    //set<int> solution_old(solution); // 记录p+1之前原始的solution，用来比较
+    int* fast_solution_old = new int[p];
+    int pc = 0;
+    for (int f : solution) {
+        fast_solution_old[pc] = f;
+        pc++;
+    }
+    int fm_tabu = INT_MAX, fm_notabu = INT_MAX, fm_temp = INT_MAX;
+    findNwk(s, w); // 找其邻域
+    set_L_notabu.clear();
+    set_L_tabu.clear();
+    for (int i = 0; i < N_v; i++) { //记录副本，方便恢复
+        D[i][0] = list_D[i][0];
+        D[i][1] = list_D[i][1];
+        F[i][0] = list_F[i][0];
+        F[i][1] = list_F[i][1];
+    }
+    for (int i : Nwk) {
+        if (solution.find(i) == solution.end()) { // 确保i不在已有的服务点中！否则出现设备和设备交换
+            addFacility(i); // 假设添加了该服务点
+            for (int pn = 0; pn < p; pn++) {
+                Mf[fast_solution_old[pn]] = 0;
+            }
+            for (int v = 0; v < N_v; v++) {
+                if (list_D[v][1] > Mf[list_F[v][0]]) {
+                    Mf[list_F[v][0]] = list_D[v][1];
+                }
+            }
+            for (int pn = 0; pn < p; pn++) { // 上一步统计了删除它们带来的Mf，这里选出删除后带来局部最小服务边长度的f，同时分为禁忌和非禁忌两个集合
+                int f = fast_solution_old[pn];
+                if (f != i) {
+                    fm_temp = max(Sc_cur, Mf[f]);
+                    if (isTaboo(f, i, step)) { // 分情况进行更新
+                        if (fm_temp < fm_tabu) {
+                            fm_tabu = fm_temp;
+                            set_L_tabu.clear();
+                            set_L_tabu.push_back(make_pair(f, i));
+                        } else {
+                            if (fm_temp == fm_tabu) {
+                                set_L_tabu.push_back(make_pair(f, i));
+                            }
+                        }
+                    } else {
+                        if (fm_temp < fm_notabu) {
+                            fm_notabu = fm_temp;
+                            set_L_notabu.clear();
+                            set_L_notabu.push_back(make_pair(f, i));
+                        } else {
+                            if (fm_temp == fm_notabu) {
+                                set_L_notabu.push_back(make_pair(f, i));
+                            }
+                        }
+                    }
+                }
+
+            }
+            solution.erase(i);
+            removeFacility_(i); // 这里不再更新Sc_cur
+        }
+    }
+    // 判断解禁条件
+    if (fm_tabu < fm_best && fm_tabu < fm_notabu) {
+        set_L = &set_L_tabu;
+    } else {
+        if (set_L_notabu.size() == 0) {
+            set_L = &set_L_tabu;
+        } else {
+            set_L = &set_L_notabu;
+        }
+
+    }
+}
+
+
+void Solver::makeSwap(pair<int, int> s_w, int step, Solution &sln) {
+    // 更新禁忌表，F D 表，solution,Sc_best等
+    int fm_notequal = fm_cur;
+    if (s_w.first < s_w.second) {
+        list_tabu[s_w.first][s_w.second] = 0.3*N_v + (rand() % p) + step;
+    } else {
+        list_tabu[s_w.second][s_w.first] = 0.3*N_v + (rand() % p) + step;
+    }
+    addFacility(s_w.second);
+    removeFacility(s_w.first);
+    fm_cur = Sc_cur;
+
+    if (fm_cur < fm_best) {
+        fm_best = fm_cur;
+        end_time = clock();
+        elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
+        cout << " update:" << fm_best << ", time used:" << elapsed_time << endl;
+        sln.clear_centers();
+        for (int f : solution) {
+            sln.add_centers(f);
+        }
+    }
+}
+
+int Solver::evaluateMf(int f_mf) {
+    for (int f : solution) {
+        Mf[f] = 0;
+    }
+    for (int v = 0; v < N_v; v++) {
+        if (list_D[v][1] > Mf[list_F[v][0]]) {
+            Mf[list_F[v][0]] = list_D[v][1];
+        }
+    }
+    return Mf[f_mf];
 }
 
 bool Solver::optimize(Solution &sln, ID workerId) {
     Log(LogSwitch::Szx::Framework) << "worker " << workerId << " starts." << endl;
-
-    ID nodeNum = input.graph().nodenum();
-    ID centerNum = input.centernum();
-
-    // reset solution state.
     bool status = true;
-    auto &centers(*sln.mutable_centers());
-    centers.Resize(centerNum, Problem::InvalidId);
+    sln.coverRadius = 0;
+    // copy the values of this program's variables to my own ones
+    N_v = input.graph().nodenum();
 
+    p = input.centernum();;
+    initializeGraph();
+    pair<int, int> s_w;
+    int random_swap_index = -1;
+    int step = 0;
+    initialzeASolution();
+    start_time = clock();
     // TODO[0]: replace the following random assignment with your own algorithm.
-    Sampling sampler(rand, centerNum);
-    for (ID n = 0; !timer.isTimeOut() && (n < nodeNum); ++n) {
-        ID center = sampler.replaceIndex();
-        if (center >= 0) { centers[center] = n; }
-    }
 
-    sln.coverRadius = 0; // record obj.
-    for (ID n = 0; n < nodeNum; ++n) {
-        for (auto c = centers.begin(); c != centers.end(); ++c) {
-            if (aux.adjMat.at(n, *c) < aux.coverRadii[n]) { aux.coverRadii[n] = aux.adjMat.at(n, *c); }
+    //by Honesty
+    //std::cout << cur_pmed_opt << std::endl;
+    //end Honesty
+    while (!timer.isTimeOut()) {
+        findLongestServeEdge();
+        s_w = longest_serve_edge[rand() % (longest_serve_edge.size())];
+        findPair_(s_w.first, s_w.second, step);
+        random_swap_index = rand() % ((*set_L).size());
+        makeSwap((*set_L)[random_swap_index], step, sln);
+        if (fm_best == cur_pmed_opt) {
+            break;
         }
-        if (sln.coverRadius < aux.coverRadii[n]) { sln.coverRadius = aux.coverRadii[n]; }
+        step++;
     }
-
-    Log(LogSwitch::Szx::Framework) << "worker " << workerId << " ends." << endl;
+    end_time = clock();
+    elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
+    cout << "the opt= " << fm_best << endl;
+    std::cout << "success,iterations:" << step << "  elapsed_time(s):" << elapsed_time << "frequency:"
+        << double(step / elapsed_time) << endl;
+    sln.coverRadius = fm_best; // 所有服务边中的最大值，即问题的输出
+    Log(LogSwitch::Szx::Framework) << " worker" << workerId << " ends." << endl;
     return status;
 }
 #pragma endregion Solver
