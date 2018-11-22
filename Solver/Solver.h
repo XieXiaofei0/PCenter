@@ -21,6 +21,8 @@
 #include "LogSwitch.h"
 #include "Problem.h"
 
+#include<utility>
+
 const int INF = 1000000000;
 
 namespace szx {
@@ -211,6 +213,7 @@ protected:
     void init();
     bool optimize(Solution &sln, ID workerId = 0); // optimize by a single worker
 
+//by Honesty
 public:
     void InitialSolu();       //Initial solution of structure
     void TabuSearch(const int &order);   //如果超时，返回false；否则，返回true      
@@ -224,6 +227,9 @@ public:
     void updateClientServiced(int newservicenode);      //更新用户节点数组
     int updateAddFacility(int addservicenode, std::vector<std::vector<int>> &Ftable, std::vector<std::vector<int>> &Dtable); //添加新的服务节点后更新F表和D表返回新的目标函数值
     int findNextServiceNode(const int deleteservicenode);   //根据删除的服务节点更新F表和D表
+    //int compareByDistance(const void *a, const void *b);     //根据距离长短进行排序函数
+    void findNw(const int &node);   //针对每个节点，与其他节点的距离长短进行排序
+//end Honesty
     #pragma endregion Method
 
     #pragma region Field
@@ -245,6 +251,7 @@ public:
     Timer timer; // the solve() should return before it is timeout.
     Iteration iteration;
 
+//by Honesty
     int optimum_solution[40] = { 127,98,93,74,48,84,64,55,37,20,59,51,36,26,18,47,39,28,18,13,40,38,22,15,11,38,32,18,
 13,9,30,29,15,11,30,27,15,29,23,13 };
 
@@ -253,15 +260,19 @@ public:
     ID bestsolu;      //keep the best solution of history
     ID iter;          //Iterative counting
 
-    double start_time;
+    double start_time;       //camulate tabusearch's time
     double end_time;
     double elapsed_time;
 
+    //used in whole process
     std::vector<int> ServiceNodes;               //Service nodes array
     std::vector<std::vector<int>> FsnodeTable;    //Nearest service node and secondary service node
     std::vector<std::vector<int>> DistanceTable;        //Distance of the nearest service node and secondary node
     std::vector<std::vector<int>> TabuTable;         //tabu table
-
+    std::vector<std::vector<int>> NwTable;
+    
+    std::vector<pair<int, int>> Nw;  //temporary variable used in qsort
+//end Honesty
     #pragma endregion Field
 }; // Solver 
 

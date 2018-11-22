@@ -311,13 +311,20 @@ bool Solver::optimize(Solution &sln, ID workerId) {
         FsnodeTable.push_back(std::vector<int>());
         DistanceTable.push_back(std::vector<int>());
         TabuTable.push_back(std::vector<int>());
+        NwTable.push_back(std::vector<int>());
+        pair<int, int> pair(-1,-1);
+        Nw.push_back(pair);
         for (int j = 0; j < nodeNum; j++) {
             TabuTable[i].push_back(0);
+            NwTable[i].push_back(-1);
         }
         for (int j = 0; j < 2; j++) {
             FsnodeTable[i].push_back(-1);
             DistanceTable[i].push_back(-1);
         }
+    }
+    for (int i = 0; i < nodeNum; i++) {    //initialize NwTable
+        findNw(i);
     }
 
     // reset solution state.
@@ -597,6 +604,22 @@ int Solver::findNextServiceNode(const int index) {           //check:yes   ¿ÉÓÅ»
             secshort_index = j;
     }
     return secshort_index;
+}
+
+int compareByDistance(const void *a,const void *b) {
+    pair<int, int> *p1 = (pair<int, int>*)a, *p2 = (pair<int, int>*)b;
+    return p1->second - p2->second;
+}
+
+void Solver::findNw(const int &node) {
+    for (int i = 0; i < nodeNum; i++) {
+        Nw[i].first = i;                      //¼ÇÂ¼½Úµã±àºÅ
+        Nw[i].second= aux.adjMat.at(node, i);   //¼ÇÂ¼³¤¶È
+    }
+    qsort(&Nw,nodeNum,sizeof(pair<int,int>),compareByDistance);
+    for (int i = 0; i < nodeNum; i++) {
+        NwTable[node][i] = Nw[i].first;    //ÒÑ¾­½øÐÐ¹ýÅÅÐò£¬Ö»¼ÇÂ¼¾àÀëÓÉ½ü¼°Ô¶µÄ½Úµã±àºÅ
+    }
 }
 
 #pragma endregion Solver
