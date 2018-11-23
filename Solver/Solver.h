@@ -21,8 +21,6 @@
 #include "LogSwitch.h"
 #include "Problem.h"
 
-#include<utility>
-
 const int INF = 1000000000;
 
 namespace szx {
@@ -271,7 +269,7 @@ public:
     std::vector<std::vector<int>> TabuTable;         //tabu table
     std::vector<std::vector<int>> NwTable;
     
-    std::vector<pair<int, int>> Nw;  //temporary variable used in qsort
+    std::vector<std::pair<int, int>> Nw;  //temporary variable used in qsort
 //end Honesty
     #pragma endregion Field
 }; // Solver 

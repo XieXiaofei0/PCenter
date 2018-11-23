@@ -197,7 +197,7 @@ void Simulator::run(const String &envPath) {
 void Simulator::debug() {
     Task task;
     task.instSet = "";
-    task.instId = "pmed4.n100e196p20";
+    task.instId = "pmed3.n100e198p10";
     //task.randSeed = "1500972793";
     //task.randSeed = "1542089240";       //pmed4算例：动作对都在禁忌中的随机种子
     task.randSeed = to_string(Random::generateSeed());
