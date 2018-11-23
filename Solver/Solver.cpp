@@ -453,7 +453,7 @@ void Solver::initialzeASolution() {
         cout << ",sol: " << f;
     }
     cout << endl;*/
-    cout << "init best:" << fm_best << " , init size: " << solution.size() << endl;
+    //cout << "init best:" << fm_best << " , init size: " << solution.size() << endl;
 }
 
 int Solver::findMax() { // 计算目标函数值，后续可以和findLongestServeEdge优化
@@ -619,9 +619,9 @@ void Solver::makeSwap(pair<int, int> s_w, int step, Solution &sln) {
 
     if (fm_cur < fm_best) {
         fm_best = fm_cur;
-        end_time = clock();
-        elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
-        cout << " update:" << fm_best << ", time used:" << elapsed_time << endl;
+        //end_time = clock();
+        //elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
+        //cout << " update:" << fm_best << ", time used:" << elapsed_time << endl;
         sln.clear_centers();
         for (int f : solution) {
             sln.add_centers(f);
