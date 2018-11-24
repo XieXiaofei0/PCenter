@@ -333,16 +333,6 @@ bool Solver::optimize(Solution &sln, ID workerId) {
         findNw(i);
     }
 
-    //check NwTable
-    //for (int i = 0; i < nodeNum; i++) {
-    //    std::cout << "node: " << i << endl;
-    //    for (int j = 0; j < nodeNum; j++) {
-    //        std::cout << NwTable[i][j] << "   ";
-    //        std::cout << aux.adjMat.at(i, NwTable[i][j]) << "   over   ";
-    //    }
-    //    std::cout<<endl;
-    //}
-
     // reset solution state.
     bool status = true;
     auto &centers(*sln.mutable_centers());
@@ -390,11 +380,9 @@ bool Solver::optimize(Solution &sln, ID workerId) {
 void Solver::InitialSolu() {
     //产生centerNum个服务节点
     int centerNode = rand.pick(0, nodeNum);       //从nodeNum个节点中随机挑一个节点
-    //ServiceNodes.push_back(centerNode);     //vector : push_back 生成新空间
     ServiceNodes[0] = centerNode;
     for (int i = 0; i < nodeNum; i++)FsnodeTable[i][0] = centerNode;       //所有节点均由此服务节点服务
     for (int i = 1; i < centerNum; i++) {
-        //ServiceNodes.push_back(findnewServiceNode());                       //check:yes
         ServiceNodes[i] = findnewServiceNode();
     }
     //初始化F表和D表
@@ -407,71 +395,40 @@ void Solver::InitialSolu() {
         DistanceTable[i][1] = aux.adjMat.at(i, FsnodeTable[i][1]);
     }
     bestsolu = best;
+    //test
+    cout << "InitialSolu: ";
+    vector<int>::iterator it;
+    for (it = ServiceNodes.begin(); it != ServiceNodes.end(); it++) {
+        cout << *it << "   ";
+    }
+    cout << endl;
+    cout << "init best:" << bestsolu << " , init size: " << ServiceNodes.size() << endl;
 }
 
 void Solver::TabuSearch(const int &order) {               //check:yes.      两个节点对连续交换的情况
     while (!timer.isTimeOut()) {     //时间满足或者多次迭代次数不能更新当前历史最优解时，不断迭代更新初始解。迭代一次：找最好动作并进行更新
-        iter++;        //迭代次数加1
         std::vector<int> shorterlenNodes;          //保存比最长服务边短的边的节点（用户节点）
         findaddNodesTS(shorterlenNodes);
-
-        BestAction bestactionTS;          //记录禁忌中最好的动作
-        BestAction bestactionNTS;         //记录非禁忌中最好的动作
-
-        //test length of shorterlenNodes
-        //std::cout << "length of shorterlenNodes: " << shorterlenNodes.size() << endl;
-        //找最好的邻域动作
-        findbestAction(shorterlenNodes, bestactionTS, bestactionNTS);
-
-        //test bestactionTS and bestactionNTS
-        //std::cout << "bestsolu: " << bestsolu << endl;
-        //std::cout << "bestactionTS: " << bestactionTS.addServiceNode << "  " << bestactionTS.deleteSericeNodeIndex << " " << bestactionTS.NewFuntion << endl;
-        //std::cout << "bestactionNTS: " << bestactionNTS.addServiceNode << "  " << bestactionNTS.deleteSericeNodeIndex << " " << bestactionNTS.NewFuntion << endl;
-
-        //判断是否满足解禁策略，若满足则进行禁忌动作并进行更新（F表，D表，禁忌表，Service数组）,并更新历史最优解
-        int newfun = INF;    //便于更新历史最优解
-        if (bestactionTS.NewFuntion < bestactionNTS.NewFuntion) {
-            if ((bestactionTS.NewFuntion < bestsolu) || (bestactionNTS.addServiceNode == -1)) {  //满足解禁策略或者动作对都在禁忌中
-                std::cout << "tabu" << std::endl;
-                newfun = makebestAction(bestactionTS);
-            }
-            else newfun = makebestAction(bestactionNTS);
-        }
-        else newfun = makebestAction(bestactionNTS);
-        //if ((bestactionTS.NewFuntion < bestactionNTS.NewFuntion) && (bestactionTS.NewFuntion < bestsolu)) {
-        //    std::cout << "tabu" << std::endl;
-        //    newfun = makebestAction(bestactionTS);
-        //} else {
-        //    newfun = makebestAction(bestactionNTS);
-        //}
-        //更新历史最优解
+        findbestAction(shorterlenNodes);
+        int index = rand() % ((*bestaction).size());
+        int newfun = INF;
+        //test
+        cout << "iter: " << iter << endl;
+        cout << "swap:" << (*bestaction)[index].first << " " << ServiceNodes[(*bestaction)[index].second] << endl;
+        newfun = makebestAction((*bestaction)[index]);
         if (newfun < bestsolu) {
             bestsolu = newfun;
+            end_time = clock();
+            elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
+            cout << " update:" << bestsolu << ", time used:" << elapsed_time << endl;
             iteration = iter;
             if (bestsolu == optimum_solution[order - 1])break;
         }
+        iter++;
     }
 }
 
 int Solver::findnewServiceNode() {     //构造初始解时找新的服务节点算法         //check:yes
-    //找到距服务节点最长的服务边的节点，并随机挑选一个
-    //int maxlen = -1;         //maxlen记录服务边的最大长度
-    //int nummaxlen = 0;     //记录最长服务边的个数
-    //int maxlenNode;        //记录最长服务边的节点
-    //for (int i = 0; i < nodeNum; i++) {
-    //    if (aux.adjMat.at(i, FsnodeTable[i][0]) >= maxlen) {
-    //        if (aux.adjMat.at(i, FsnodeTable[i][0]) > maxlen) {
-    //            nummaxlen = 1;
-    //            maxlen = aux.adjMat.at(i, FsnodeTable[i][0]);
-    //            maxlenNode = i;
-    //        } else {
-    //            nummaxlen++;
-    //            if (rand.pick(nummaxlen) == 0) {
-    //                maxlenNode = i;
-    //            }
-    //        }
-    //    }
-    //}
     int maxlen = -1;
     int maxlenNode = -1;
     vector<int> maxlenNodes;
@@ -490,33 +447,12 @@ int Solver::findnewServiceNode() {     //构造初始解时找新的服务节点算法         
     // 找到比当前最大服务边短的节点，并随机挑选一个作为新的服务节点
     std::vector<int> shortlenNodes;             //记录比最长服务边短的边的节点
     findminNode(maxlenNode, maxlen, shortlenNodes);                                //update:可用水塘抽样随机选择一个节点
-    //random_shuffle(shortlenNodes.begin(), shortlenNodes.end());   //选取第一个元素作为服务节点
     int newServiceNode = shortlenNodes[rand() % shortlenNodes.size()];
-    //updateClientServiced(shortlenNodes[0]);        //更新用户节点数组          //check:ing
     updateClientServiced(newServiceNode);
-    //return shortlenNodes[0];
     return newServiceNode;
 }
 
 void Solver::findaddNodesTS(std::vector<int> &nodes) {            //check:yes
-    //利用D表查找最长服务边的节点对，并随机挑选一个用户节点
-    //int maxlen = -1;         //maxlen记录服务边的最大长度
-    //int nummaxlen = 0;     //记录最长服务边的个数
-    //int maxlenNode;        //记录最长服务边的节点
-    //for (int i = 0; i < nodeNum; i++) {
-    //    if (DistanceTable[i][0] >= maxlen) {
-    //        if (DistanceTable[i][0] > maxlen) {
-    //            nummaxlen = 1;
-    //            maxlen = DistanceTable[i][0];
-    //            maxlenNode = i;
-    //        } else {
-    //            nummaxlen++;
-    //            if (rand.pick(nummaxlen) == 0) {
-    //                maxlenNode = i;
-    //            }
-    //        }
-    //    }
-    //}
     int maxlen = -1;
     int maxlenNode = -1;
     vector<int> maxlenNodes;
@@ -536,15 +472,14 @@ void Solver::findaddNodesTS(std::vector<int> &nodes) {            //check:yes
     findminNode(maxlenNode, maxlen, nodes);
 }
 
-void Solver::findbestAction(const std::vector<int> &addservicenodes, BestAction &bestmoveTS, BestAction &bestmoveNTS) {  //局部搜索中找到最好的邻域动作，保存在返回数组中    check:yes
-    //依次试探增加shorterlenNodes中用户节点为服务节点，分别删除已添加的服务节点，计算目标函数增量
-    int numbestTS = 0;          //记录禁忌最好解的个数
-    int numbestNTS = 0;         //记录费禁忌最好解的个数
+void Solver::findbestAction(const std::vector<int> &addservicenodes) {
 
+    int tabufc = INF;
+    int notabufc = INF;
+    int newfunction = INF;
     for (int i = 0; i < addservicenodes.size(); i++) {
         std::vector<std::vector<int>> FTable = FsnodeTable;
         std::vector<std::vector<int>> DTable = DistanceTable;
-        //加入add[i]节点后更新F表和D表和Function；
         int fun = updateAddFacility(addservicenodes[i], FTable, DTable);    //fun为加入服务节点之后的目标函数值
         for (int j = 0; j < ServiceNodes.size(); j++) {
             int maxlen = 0;                                //记录删除某一服务节点后，产生的最长服务边的长度
@@ -553,55 +488,56 @@ void Solver::findbestAction(const std::vector<int> &addservicenodes, BestAction 
                     if (maxlen < DTable[v][1])maxlen = DTable[v][1];
                 }
             }
-            int newfunction = std::max(fun, maxlen);
+            newfunction = std::max(fun, maxlen);
             if (iter < TabuTable[addservicenodes[i]][ServiceNodes[j]]) //节点对在禁忌中
             {
-                if (newfunction <= bestmoveTS.NewFuntion) {
-                    if (newfunction < bestmoveTS.NewFuntion) {
-                        numbestTS = 1;
-                        bestmoveTS.addServiceNode = addservicenodes[i];
-                        bestmoveTS.deleteSericeNodeIndex = j;
-                        bestmoveTS.NewFuntion = newfunction;
-                    } else {
-                        numbestTS++;
-                        if (rand.pick(numbestTS) == 0) {
-                            bestmoveTS.addServiceNode = addservicenodes[i];
-                            bestmoveTS.deleteSericeNodeIndex = j;
-                            bestmoveTS.NewFuntion = newfunction;
-                        }
+                if (newfunction <= tabufc) {
+                    if (newfunction < tabufc) {
+                        bestactionTS.clear();
+                        bestactionTS.push_back(make_pair(addservicenodes[i], j));
+                        tabufc = newfunction;
+                    } 
+                    else {
+                        bestactionTS.push_back(make_pair(addservicenodes[i], j));
                     }
                 }
-            } else {
-                if (newfunction <= bestmoveNTS.NewFuntion) {
-                    if (newfunction < bestmoveNTS.NewFuntion) {
-                        numbestNTS = 1;
-                        bestmoveNTS.addServiceNode = addservicenodes[i];
-                        bestmoveNTS.deleteSericeNodeIndex = j;
-                        bestmoveNTS.NewFuntion = newfunction;
-                    } else {
-                        numbestNTS++;
-                        if (rand.pick(numbestNTS) == 0) {
-                            bestmoveNTS.addServiceNode = addservicenodes[i];
-                            bestmoveNTS.deleteSericeNodeIndex = j;
-                            bestmoveNTS.NewFuntion = newfunction;
-                        }
+            } 
+            else {
+                if (newfunction <= notabufc) {
+                    if (newfunction < notabufc) {
+                        bestactionNTS.clear();
+                        bestactionNTS.push_back(make_pair(addservicenodes[i], j));
+                        notabufc = newfunction;;
+                    } 
+                    else {
+                        bestactionNTS.push_back(make_pair(addservicenodes[i], j));
                     }
                 }
             }
         }
     }
+    //判断禁忌条件
+    if ((tabufc < bestsolu) && (tabufc < notabufc)) {
+        bestaction = &bestactionTS;
+    }
+    else {
+        if (bestactionNTS.size() == 0)bestaction = &bestactionTS;
+        else bestaction = &bestactionNTS;
+    }
 }
 
-int Solver::makebestAction(const BestAction &adddeletenodepair) {                      //check:yes。 考虑修改禁忌长度
-    int deleteservicenode = ServiceNodes[adddeletenodepair.deleteSericeNodeIndex];  //记录删除节点
+
+int Solver::makebestAction(const std::pair<int,int> &best) {                      //check:yes。 考虑修改禁忌长度
+    
+    int deleteservicenode = ServiceNodes[best.second];
+    int newfun = 0;
     //int scaleconstant = (int)(nodeNum*0.5 + centerNum);
     //int scaleconstant = (int)(nodeNum*0.8);
     //TabuTable[adddeletenodepair.addServiceNode][deleteservicenode] = iter + scaleconstant + rand.pick(1, centerNum);   //更新禁忌表
-    //TabuTable[deleteservicenode][adddeletenodepair.addServiceNode] = iter + scaleconstant + rand.pick(1, centerNum);
-    TabuTable[deleteservicenode][adddeletenodepair.addServiceNode] = 0.3*nodeNum + (rand() % centerNum) + iter;
-    TabuTable[adddeletenodepair.addServiceNode][deleteservicenode] = TabuTable[deleteservicenode][adddeletenodepair.addServiceNode];
-    ServiceNodes[adddeletenodepair.deleteSericeNodeIndex] = adddeletenodepair.addServiceNode;    //更新服务节点数组
-    int fun = updateAddFacility(adddeletenodepair.addServiceNode, FsnodeTable, DistanceTable);  //首先更新加入服务节点的F表和D表
+    TabuTable[deleteservicenode][best.first] = 0.3*nodeNum + (rand() % centerNum) + iter;
+    TabuTable[best.first][deleteservicenode] = TabuTable[deleteservicenode][best.first];
+    ServiceNodes[best.second] = best.first;    //更新服务节点数组
+    int fun = updateAddFacility(best.first, FsnodeTable, DistanceTable);  //首先更新加入服务节点的F表和D表
     for (int i = 0; i < nodeNum; i++)    //删除节点后更新F表和D表
     {
         if (FsnodeTable[i][0] == deleteservicenode) {
@@ -616,18 +552,13 @@ int Solver::makebestAction(const BestAction &adddeletenodepair) {               
             DistanceTable[i][1] = aux.adjMat.at(i, FsnodeTable[i][1]);
 
         } else;
+        if (newfun < DistanceTable[i][0])newfun = DistanceTable[i][0];
     }
-    return adddeletenodepair.NewFuntion;              //返回新的目标函数值
+    return newfun;              //返回新的目标函数值
 }
 
 void Solver::findminNode(int indexnode, int servicelength, std::vector<int> &nodes)    //找到比当前最大服务边短的节点   check:yes
 {
-    // 找到比当前最大服务边短的节点
-    //for (int i = 0; i < nodeNum; i++) {
-    //    if (aux.adjMat.at(indexnode, i) < servicelength) {
-    //        nodes.push_back(i);
-    //    }
-    //}
     for (int i = 0; i < nodeNum; i++) {
         if (aux.adjMat.at(indexnode, NwTable[indexnode][i]) == servicelength)break;
         nodes.push_back(NwTable[indexnode][i]);
@@ -662,33 +593,21 @@ int Solver::updateAddFacility(int addservicenode, std::vector<std::vector<int>> 
 }
 
 int Solver::findNextServiceNode(const int index) {           //check:yes   可优化                //test
-    int num;
-    int secshort_index = 0;                   //记录次短距离服务节点的索引
+    int second_Distance = INF;                   //记录次短距离服务节点的索引
     vector<int> nextNodes;
-    if (ServiceNodes[secshort_index] == FsnodeTable[index][0]) secshort_index++;   //排除第一个服务节点就是最近的服务节点的情况
-    for (int j = 1; j < centerNum; j++) {          //查找次近距离的服务节点
+    for (int j = 0; j < centerNum; j++) {          //查找次近距离的服务节点
         if (ServiceNodes[j] == FsnodeTable[index][0])continue;
-        if (aux.adjMat.at(index, ServiceNodes[j]) <= aux.adjMat.at(index, ServiceNodes[secshort_index])) {
-            //if (aux.adjMat.at(index, ServiceNodes[j]) < aux.adjMat.at(index, ServiceNodes[secshort_index])) {
-            //    num = 1;
-            //    secshort_index = j;
-            //}
-            //else {
-            //    num++;
-            //    if (rand.pick(num) == 0) {
-            //        secshort_index = j;
-            //    }
-            //}
-            if (aux.adjMat.at(index, ServiceNodes[j]) < aux.adjMat.at(index, ServiceNodes[secshort_index])) {
+        if (aux.adjMat.at(index, ServiceNodes[j]) <= second_Distance) {
+            if (aux.adjMat.at(index, ServiceNodes[j]) < second_Distance) {
                 nextNodes.clear();
                 nextNodes.push_back(j);
+                second_Distance = aux.adjMat.at(index, ServiceNodes[j]);
             } else {
                 nextNodes.push_back(j);
             }
         }
     }
-    secshort_index = nextNodes[rand() % nextNodes.size()];
-    return secshort_index;
+    return nextNodes[rand() % nextNodes.size()];
 }
 
 int compareByDistance(const void *a,const void *b) {
