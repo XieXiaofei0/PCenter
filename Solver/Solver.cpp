@@ -312,7 +312,7 @@ void Solver::initializeGraph() { // 初始化
     // 全局变量也要初始化
     list_tabu = new int*[N_v];
     list_D = new int*[N_v];
-    D = new int*[N_v];
+    D = new int*[N_v];            //by Honesty:F,D是临时的表
     list_F = new int*[N_v];
     F = new int*[N_v];
     list_Nw = new int*[N_v];
@@ -542,6 +542,13 @@ void Solver::findPair_(int s, int w, int step) {
     findNwk(s, w); // 找其邻域
     set_L_notabu.clear();
     set_L_tabu.clear();
+    //test
+    cout << "the will added nodes:" << endl;
+    for (int i : Nwk) {
+        cout << i << " ";
+    }
+    cout << endl;
+    //test end
     for (int i = 0; i < N_v; i++) { //记录副本，方便恢复
         D[i][0] = list_D[i][0];
         D[i][1] = list_D[i][1];
@@ -554,7 +561,7 @@ void Solver::findPair_(int s, int w, int step) {
             for (int pn = 0; pn < p; pn++) {
                 Mf[fast_solution_old[pn]] = 0;
             }
-            for (int v = 0; v < N_v; v++) {
+            for (int v = 0; v < N_v; v++) {              //by Honesty:记录删除某服务节点后产生的最长服务边长度
                 if (list_D[v][1] > Mf[list_F[v][0]]) {
                     Mf[list_F[v][0]] = list_D[v][1];
                 }
@@ -591,12 +598,37 @@ void Solver::findPair_(int s, int w, int step) {
             removeFacility_(i); // 这里不再更新Sc_cur
         }
     }
+    //test
+    cout << "bestsolu: " << fm_best << endl;
+    cout << "tabu_fm: " << fm_tabu << endl;
+    cout << "notabu_fm: " << fm_notabu << endl;
+    cout << "tabu_pair: " << set_L_tabu.size() << endl;
+    if (set_L_tabu.size() != 0) {
+        for (pair<int, int> i : set_L_tabu) {
+            cout << "  " << i.first << "  " << i.second << endl;
+        }
+        cout << endl;
+    }
+    cout << "notabu_pair: " << set_L_notabu.size() << endl;
+    if (set_L_notabu.size() != 0) {
+        for (pair<int, int> i : set_L_notabu) {
+            cout << "  " << i.first << "  " << i.second << endl;
+        }
+        cout << endl;
+    }
+    //test end
     // 判断解禁条件
     if (fm_tabu < fm_best && fm_tabu < fm_notabu) {
         set_L = &set_L_tabu;
+        //test
+        cout << "make tabu pair" << endl;
+        //test end
     } else {
         if (set_L_notabu.size() == 0) {
             set_L = &set_L_tabu;
+            //test
+            cout << "make tabu pair" << endl;
+            //test end
         } else {
             set_L = &set_L_notabu;
         }
@@ -616,12 +648,13 @@ void Solver::makeSwap(pair<int, int> s_w, int step, Solution &sln) {
     addFacility(s_w.second);
     removeFacility(s_w.first);
     fm_cur = Sc_cur;
-
+    //test
+    cout << "swap: " << s_w.second << " " << s_w.first << endl;
     if (fm_cur < fm_best) {
         fm_best = fm_cur;
-        //end_time = clock();
-        //elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
-        //cout << " update:" << fm_best << ", time used:" << elapsed_time << endl;
+        end_time = clock();
+        elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
+        cout << " update:" << fm_best << ", time used:" << elapsed_time << endl;
         sln.clear_centers();
         for (int f : solution) {
             sln.add_centers(f);
@@ -648,27 +681,48 @@ bool Solver::optimize(Solution &sln, ID workerId) {
     // copy the values of this program's variables to my own ones
     N_v = input.graph().nodenum();
 
-    p = input.centernum();;
+    p = input.centernum();
     initializeGraph();
     pair<int, int> s_w;
     int random_swap_index = -1;
     int step = 0;
     initialzeASolution();
+    //test
+    cout << "Intialsolu: ";
+    for (int f : solution) {
+        cout << f << " ";
+    }
+    cout << endl;
+    //test end
     start_time = clock();
     // TODO[0]: replace the following random assignment with your own algorithm.
 
-    //by Honesty
-    //std::cout << cur_pmed_opt << std::endl;
-    //end Honesty
     while (!timer.isTimeOut()) {
         findLongestServeEdge();
+        //test
+        cout << "iter: " << step << endl;
+        cout << "the longest service_edges: " << endl;
+        for (int i = 0; i < longest_serve_edge.size(); i++)
+            cout << "  " << i << ": " << longest_serve_edge[i].first << " " << longest_serve_edge[i].second << endl;
+        cout << endl;
+        //test end
         s_w = longest_serve_edge[rand() % (longest_serve_edge.size())];
+        //test
+        cout << "the longest edge_pair : " << s_w.first << " " << s_w.second << endl;
+        //test end
         findPair_(s_w.first, s_w.second, step);
         random_swap_index = rand() % ((*set_L).size());
+        //test
+        cout << "make pair_index：" << random_swap_index << endl;
+        cout << "the true swap pair is : " << (*set_L)[random_swap_index].first << " " << (*set_L)[random_swap_index].second << endl << endl << endl;
+        //test end
         makeSwap((*set_L)[random_swap_index], step, sln);
-        if (fm_best == cur_pmed_opt) {
-            break;
-        }
+        //if (fm_best == cur_pmed_opt) {
+        //    break;
+        //}
+        //test
+        if (step == 50)break;
+        //test end
         step++;
     }
     end_time = clock();

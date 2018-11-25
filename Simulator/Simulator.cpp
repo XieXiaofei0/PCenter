@@ -240,8 +240,8 @@ void Simulator::run(const String &envPath) {
 void Simulator::debug() {
     Task task;
     task.instSet = "";
-    task.instId = "pmed1.n100e198p5";
-    task.randSeed = "1500972793";
+    task.instId = "pmed3.n100e198p10";
+    task.randSeed = "1542975130";
     //task.randSeed = to_string(RandSeed::generate());
     task.timeout = "180";
     //task.maxIter = "1000000000";
