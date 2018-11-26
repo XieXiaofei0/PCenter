@@ -721,7 +721,7 @@ bool Solver::optimize(Solution &sln, ID workerId) {
         //    break;
         //}
         //test
-        if (step == 50)break;
+        if (step == 10)break;
         //test end
         step++;
     }
