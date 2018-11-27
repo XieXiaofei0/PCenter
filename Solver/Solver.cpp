@@ -298,8 +298,45 @@ void Solver::init() {
 bool Solver::optimize(Solution &sln, ID workerId) {
     Log(LogSwitch::Szx::Framework) << "worker " << workerId << " starts." << endl;
 
-    ID nodeNum = input.graph().nodenum();
-    ID centerNum = input.centernum();
+    int order = 0;
+    if ((env.instPath[14] >= '0') && (env.instPath[14] <= '9'))order = (env.instPath[13] - '0') * 10 + (env.instPath[14] - '0');
+    else order = env.instPath[13] - '0';
+
+    nodeNum = input.graph().nodenum();
+    centerNum = input.centernum();
+    iter = 0;
+
+    //Initializing all data structures  所有数据结构赋初值为-1,邻接矩阵赋最大值INF;禁忌表赋初值为0
+    for (int i = 0; i < nodeNum; i++) {
+        FsnodeTable.push_back(std::vector<int>());
+        DistanceTable.push_back(std::vector<int>());
+        FTable.push_back(std::vector<int>());
+        DTable.push_back(std::vector<int>());
+        TabuTable.push_back(std::vector<int>());
+        NwTable.push_back(std::vector<int>());
+        longedgeMap.push_back(INF);
+        pair<int, int> pair(-1,-1);
+        Nw.push_back(pair);
+        for (int j = 0; j < nodeNum; j++) {
+            TabuTable[i].push_back(0);
+            NwTable[i].push_back(-1);
+        }
+        for (int j = 0; j < 2; j++) {
+            FsnodeTable[i].push_back(-1);
+            DistanceTable[i].push_back(-1);
+            DTable[i].push_back(-1);
+            FTable[i].push_back(-1);
+        }
+    }
+
+    //ServiceNodes : 构造新的空间
+    for (int i = 0; i < centerNum; i++) {    //initialize NwTable
+        ServiceNodes.push_back(-1);
+    }
+
+    for (int i = 0; i < nodeNum; i++) {    //initialize NwTable
+        findNw(i);
+    }
 
     // reset solution state.
     bool status = true;
@@ -307,22 +344,325 @@ bool Solver::optimize(Solution &sln, ID workerId) {
     centers.Resize(centerNum, Problem::InvalidId);
 
     // TODO[0]: replace the following random assignment with your own algorithm.
-    Sampling sampler(rand, centerNum);
-    for (ID n = 0; !timer.isTimeOut() && (n < nodeNum); ++n) {
-        ID center = sampler.replaceIndex();
-        if (center >= 0) { centers[center] = n; }
+
+    InitialSolu();
+    
+    start_time = clock();
+    TabuSearch(order);
+    end_time = clock();
+    elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
+    //std::cout << "  elapsed_time(s):" << elapsed_time << endl;
+    std::cout << "success,iterations:" << iter << "  elapsed_time(s):" << elapsed_time << "frequency:"
+        << double(iter / elapsed_time) << endl;
+
+    for (ID n = 0; n < centerNum; ++n) {
+        centers[n] = ServiceNodes[n];
     }
 
     sln.coverRadius = 0; // record obj.
     for (ID n = 0; n < nodeNum; ++n) {
-        for (auto c = centers.begin(); c != centers.end(); ++c) {
-            if (aux.adjMat.at(n, *c) < aux.coverRadii[n]) { aux.coverRadii[n] = aux.adjMat.at(n, *c); }
-        }
+        aux.coverRadii[n] = DistanceTable[n][0];
         if (sln.coverRadius < aux.coverRadii[n]) { sln.coverRadius = aux.coverRadii[n]; }
     }
 
+    //Sampling sampler(rand, centerNum);
+    //for (ID n = 0; !timer.isTimeOut() && (n < nodeNum); ++n) {
+    //    ID center = sampler.replaceIndex();
+    //    if (center >= 0) { centers[center] = n; }
+    //}
+
+    //sln.coverRadius = 0; // record obj.
+    //for (ID n = 0; n < nodeNum; ++n) {
+    //    for (auto c = centers.begin(); c != centers.end(); ++c) {
+    //        if (aux.adjMat.at(n, *c) < aux.coverRadii[n]) { aux.coverRadii[n] = aux.adjMat.at(n, *c); }
+    //    }
+    //    if (sln.coverRadius < aux.coverRadii[n]) { sln.coverRadius = aux.coverRadii[n]; }
+    //}
+
     Log(LogSwitch::Szx::Framework) << "worker " << workerId << " ends." << endl;
     return status;
+}
+void Solver::InitialSolu() {
+    //产生centerNum个服务节点
+    int centerNode = rand.pick(0, nodeNum);       //从nodeNum个节点中随机挑一个节点
+    ServiceNodes[0] = centerNode;
+    for (int i = 0; i < nodeNum; i++)FsnodeTable[i][0] = centerNode;       //所有节点均由此服务节点服务
+    for (int i = 1; i < centerNum; i++) {
+        ServiceNodes[i] = findnewServiceNode();
+    }
+    //初始化F表和D表
+    int best = -1;
+    for (int i = 0; i < nodeNum; i++) {
+        DistanceTable[i][0] = aux.adjMat.at(i, FsnodeTable[i][0]);
+        if (best < DistanceTable[i][0]) { best = DistanceTable[i][0]; }
+        int serviceindex = findNextServiceNode(i);                               //check:yes
+        FsnodeTable[i][1] = ServiceNodes[serviceindex];        //次近距离的服务节点
+        DistanceTable[i][1] = aux.adjMat.at(i, FsnodeTable[i][1]);
+    }
+    bestsolu = best;
+    //test
+    cout << "InitialSolu: ";
+    vector<int>::iterator it;
+    for (it = ServiceNodes.begin(); it != ServiceNodes.end(); it++) {
+        cout << *it << "   ";
+    }
+    cout << endl;
+    cout << "init best:" << bestsolu << " , init size: " << ServiceNodes.size() << endl;
+}
+
+void Solver::TabuSearch(const int &order) {               //check:yes.      两个节点对连续交换的情况
+    while (!timer.isTimeOut()) {     //时间满足或者多次迭代次数不能更新当前历史最优解时，不断迭代更新初始解。迭代一次：找最好动作并进行更新
+        std::vector<int> shorterlenNodes;          //保存比最长服务边短的边的节点（用户节点）
+        findaddNodesTS(shorterlenNodes);
+        findbestAction(shorterlenNodes);
+        int index = rand() % ((*bestaction).size());
+        int newfun = INF;
+        //test
+       // cout << "iter: " << iter << endl;
+        //cout << "swap:" << (*bestaction)[index].first << " " << ServiceNodes[(*bestaction)[index].second] << endl;
+        newfun = makebestAction((*bestaction)[index]);
+        if (newfun < bestsolu) {
+            bestsolu = newfun;
+            end_time = clock();
+            elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
+            cout << " update:" << bestsolu << ", time used:" << elapsed_time << endl;
+            iteration = iter;
+            if (bestsolu == optimum_solution[order - 1])break;
+        }
+        iter++;
+    }
+}
+
+int Solver::findnewServiceNode() {     //构造初始解时找新的服务节点算法         //check:yes
+    int maxlen = -1;
+    int maxlenNode = -1;
+    vector<int> maxlenNodes;
+    for (int i = 0; i < nodeNum; i++) {
+        if (aux.adjMat.at(i, FsnodeTable[i][0]) >= maxlen) {
+            if (aux.adjMat.at(i, FsnodeTable[i][0]) > maxlen) {
+                maxlen = aux.adjMat.at(i, FsnodeTable[i][0]);
+                maxlenNodes.clear();
+                maxlenNodes.push_back(i);
+            } else {
+                maxlenNodes.push_back(i);
+            }
+        }
+    }
+    maxlenNode = maxlenNodes[rand() % maxlenNodes.size()];
+    // 找到比当前最大服务边短的节点，并随机挑选一个作为新的服务节点
+    std::vector<int> shortlenNodes;             //记录比最长服务边短的边的节点
+    findminNode(maxlenNode, maxlen, shortlenNodes);                                //update:可用水塘抽样随机选择一个节点
+    int newServiceNode = shortlenNodes[rand() % shortlenNodes.size()];
+    updateClientServiced(newServiceNode);
+    return newServiceNode;
+}
+
+void Solver::findaddNodesTS(std::vector<int> &nodes) {            //check:yes
+    int maxlen = -1;
+    int maxlenNode = -1;
+    vector<int> maxlenNodes;
+    for (int i = 0; i < nodeNum; i++) {
+        if (aux.adjMat.at(i, FsnodeTable[i][0]) >= maxlen) {
+            if (aux.adjMat.at(i, FsnodeTable[i][0]) > maxlen) {
+                maxlen = aux.adjMat.at(i, FsnodeTable[i][0]);
+                maxlenNodes.clear();
+                maxlenNodes.push_back(i);
+            } else {
+                maxlenNodes.push_back(i);
+            }
+        }
+    }
+    maxlenNode = maxlenNodes[rand() % maxlenNodes.size()];
+    // 找到比当前服务边短的边的节点，保存在nodes数组中
+    findminNode(maxlenNode, maxlen, nodes);
+}
+
+void Solver::findbestAction(const std::vector<int> &addservicenodes) {
+
+    int tabufc = INF;
+    int notabufc = INF;
+    int newfunction = INF;
+    //for (int i = 0; i < nodeNum; i++) {           //FTable和DTable用作保留副本
+    //    FTable[i][0] = FsnodeTable[i][0];
+    //    DTable[i][0] = DistanceTable[i][0];
+    //    FTable[i][1] = FsnodeTable[i][1];
+    //    DTable[i][1] = DistanceTable[i][1];
+    //}
+    for (int i = 0; i < addservicenodes.size(); i++) {
+        //std::vector<std::vector<int>> FTable = FsnodeTable;
+        //std::vector<std::vector<int>> DTable = DistanceTable;
+        for (int i = 0; i < nodeNum; i++) {           //FTable和DTable用作保留副本
+            FTable[i][0] = FsnodeTable[i][0];
+            DTable[i][0] = DistanceTable[i][0];
+            FTable[i][1] = FsnodeTable[i][1];
+            DTable[i][1] = DistanceTable[i][1];
+        }
+        for (int i = 0; i < ServiceNodes.size(); i++) {
+            longedgeMap[ServiceNodes[i]] = 0;
+        }
+        int fun = updateAddFacility(addservicenodes[i], FTable, DTable);    //fun为加入服务节点之后的目标函数值
+        for (int i = 0; i < nodeNum; i++) {
+            if (DTable[i][1] > longedgeMap[FTable[i][0]])
+                longedgeMap[FTable[i][0]] = DTable[i][1];
+        }
+        
+        for (int j = 0; j < ServiceNodes.size(); j++) {
+            //int maxlen = 0;                                //记录删除某一服务节点后，产生的最长服务边的长度
+            //for (int v = 0; v < nodeNum; v++) {
+            //    if (FTable[v][0] == ServiceNodes[j]) {
+            //        if (maxlen < DTable[v][1])maxlen = DTable[v][1];
+            //    }
+            //}
+            newfunction = std::max(fun, longedgeMap[ServiceNodes[j]]);
+            //newfunction = std::max(fun, maxlen);
+            if (iter < TabuTable[addservicenodes[i]][ServiceNodes[j]]) //节点对在禁忌中
+            {
+                if (newfunction <= tabufc) {
+                    if (newfunction < tabufc) {
+                        bestactionTS.clear();
+                        bestactionTS.push_back(make_pair(addservicenodes[i], j));
+                        tabufc = newfunction;
+                    } 
+                    else {
+                        bestactionTS.push_back(make_pair(addservicenodes[i], j));
+                    }
+                }
+            } 
+            else {
+                if (newfunction <= notabufc) {
+                    if (newfunction < notabufc) {
+                        bestactionNTS.clear();
+                        bestactionNTS.push_back(make_pair(addservicenodes[i], j));
+                        notabufc = newfunction;;
+                    } 
+                    else {
+                        bestactionNTS.push_back(make_pair(addservicenodes[i], j));
+                    }
+                }
+            }
+        }
+        //deleteNode(addservicenodes[i]);
+    }
+    //判断禁忌条件
+    if ((tabufc < bestsolu) && (tabufc < notabufc)) {
+        bestaction = &bestactionTS;
+    }
+    else {
+        if (bestactionNTS.size() == 0)bestaction = &bestactionTS;
+        else bestaction = &bestactionNTS;
+    }
+}
+
+
+int Solver::makebestAction(const std::pair<int,int> &best) {                      //check:yes。 考虑修改禁忌长度
+    
+    int deleteservicenode = ServiceNodes[best.second];
+    int newfun = 0;
+    //int scaleconstant = (int)(nodeNum*0.5 + centerNum);
+    //int scaleconstant = (int)(nodeNum*0.8);
+    //TabuTable[best.first][deleteservicenode] = iter + scaleconstant + rand.pick(1, centerNum);   //更新禁忌表
+   // TabuTable[deleteservicenode][best.first] = iter + scaleconstant + rand.pick(1, centerNum);
+    TabuTable[deleteservicenode][best.first] = 0.3*nodeNum + (rand() % centerNum) + iter;
+    TabuTable[best.first][deleteservicenode] = TabuTable[deleteservicenode][best.first];
+    ServiceNodes[best.second] = best.first;    //更新服务节点数组
+    int fun = updateAddFacility(best.first, FsnodeTable, DistanceTable);  //首先更新加入服务节点的F表和D表
+    for (int i = 0; i < nodeNum; i++)    //删除节点后更新F表和D表
+    {
+        if (FsnodeTable[i][0] == deleteservicenode) {
+            FsnodeTable[i][0] = FsnodeTable[i][1];
+            DistanceTable[i][0] = DistanceTable[i][1];
+            int serviceindex = findNextServiceNode(i);
+            FsnodeTable[i][1] = ServiceNodes[serviceindex];
+            DistanceTable[i][1] = aux.adjMat.at(i, FsnodeTable[i][1]);
+        } else if (FsnodeTable[i][1] == deleteservicenode) {
+            int serviceindex = findNextServiceNode(i);
+            FsnodeTable[i][1] = ServiceNodes[serviceindex];
+            DistanceTable[i][1] = aux.adjMat.at(i, FsnodeTable[i][1]);
+
+        } else;
+        if (newfun < DistanceTable[i][0])newfun = DistanceTable[i][0];
+    }
+    return newfun;              //返回新的目标函数值
+}
+
+void Solver::findminNode(int indexnode, int servicelength, std::vector<int> &nodes)    //找到比当前最大服务边短的节点   check:yes
+{
+    for (int i = 0; i < nodeNum; i++) {
+        if (aux.adjMat.at(indexnode, NwTable[indexnode][i]) == servicelength)break;
+        nodes.push_back(NwTable[indexnode][i]);
+    }
+}
+
+void Solver::updateClientServiced(int newservicenode) {   //更新用户节点数组       //check:yes
+    //当新的服务节点和用户节点距离小于当前服务边时，修改为被新的服务节点服务
+    for (int i = 0; i < nodeNum; i++) {
+        if (aux.adjMat.at(i, newservicenode) < aux.adjMat.at(i, FsnodeTable[i][0])) {
+            FsnodeTable[i][0] = newservicenode;
+        }
+    }
+}
+
+int Solver::updateAddFacility(int addservicenode, std::vector<std::vector<int>> &Ftable, std::vector<std::vector<int>> &Dtable) {     //check:yes
+
+    int function = 0;
+    for (int i = 0; i < nodeNum; i++) {
+        if (aux.adjMat.at(addservicenode, i) < Dtable[i][0]) {
+            Dtable[i][1] = Dtable[i][0];
+            Ftable[i][1] = Ftable[i][0];
+            Dtable[i][0] = aux.adjMat.at(addservicenode, i);
+            Ftable[i][0] = addservicenode;
+        } else if (aux.adjMat.at(addservicenode, i) < Dtable[i][1]) {
+            Dtable[i][1] = aux.adjMat.at(addservicenode, i);
+            Ftable[i][1] = addservicenode;
+        } else;
+        if (function < Dtable[i][0])function = Dtable[i][0];
+    }
+    return function;
+}
+
+int Solver::findNextServiceNode(const int index) {           //check:yes   可优化                //test
+    int second_Distance = INF;                   //记录次短距离服务节点的索引
+    vector<int> nextNodes;
+    for (int j = 0; j < centerNum; j++) {          //查找次近距离的服务节点
+        if (ServiceNodes[j] == FsnodeTable[index][0])continue;
+        if (aux.adjMat.at(index, ServiceNodes[j]) <= second_Distance) {
+            if (aux.adjMat.at(index, ServiceNodes[j]) < second_Distance) {
+                nextNodes.clear();
+                nextNodes.push_back(j);
+                second_Distance = aux.adjMat.at(index, ServiceNodes[j]);
+            } else {
+                nextNodes.push_back(j);
+            }
+        }
+    }
+    return nextNodes[rand() % nextNodes.size()];
+}
+
+int compareByDistance(const void *a,const void *b) {
+    pair<int, int> *p1 = (pair<int, int>*)a, *p2 = (pair<int, int>*)b;
+    return p1->second - p2->second;
+}
+
+void Solver::findNw(const int &node) {
+    for (int i = 0; i < nodeNum; i++) {
+        Nw[i].first = i;                      //记录节点编号
+        Nw[i].second= aux.adjMat.at(node, i);   //记录长度
+    }
+
+    qsort(&(Nw.data()[0]),nodeNum,sizeof(pair<int,int>),compareByDistance);
+
+    for (int i = 0; i < nodeNum; i++) {
+        NwTable[node][i] = Nw[i].first;    //已经进行过排序，只记录距离由近及远的节点编号
+    }
+}
+
+void Solver::deleteNode(const int &node) {
+    for (int i = 0; i < nodeNum; i++) {
+        FTable[i][0] = FsnodeTable[i][0];
+        DTable[i][1] = DistanceTable[i][1];
+        DTable[i][0] = DistanceTable[i][0];
+        FTable[i][1] = FsnodeTable[i][1];
+    }
 }
 #pragma endregion Solver
 
