@@ -652,9 +652,9 @@ void Solver::makeSwap(pair<int, int> s_w, int step, Solution &sln) {
     //cout << "swap: " << s_w.second << " " << s_w.first << endl;
     if (fm_cur < fm_best) {
         fm_best = fm_cur;
-        end_time = clock();
-        elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
-        cout << " update:" << fm_best << ", time used:" << elapsed_time << endl;
+        //end_time = clock();
+        //elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
+        //cout << " update:" << fm_best << ", time used:" << elapsed_time << endl;
         sln.clear_centers();
         for (int f : solution) {
             sln.add_centers(f);
@@ -688,13 +688,13 @@ bool Solver::optimize(Solution &sln, ID workerId) {
     int step = 0;
     initialzeASolution();
     //test
-    cout << "Intialsolu: ";
-    for (int f : solution) {
-        cout << f << " ";
-    }
-    cout << endl;
+    //cout << "Intialsolu: ";
+    //for (int f : solution) {
+        //cout << f << " ";
+   // }
+    //cout << endl;
     //test end
-    start_time = clock();
+    //start_time = clock();
     // TODO[0]: replace the following random assignment with your own algorithm.
 
     while (!timer.isTimeOut()) {
@@ -725,11 +725,12 @@ bool Solver::optimize(Solution &sln, ID workerId) {
         //test end
         step++;
     }
-    end_time = clock();
-    elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
-    cout << "the opt= " << fm_best << endl;
-    std::cout << "success,iterations:" << step << "  elapsed_time(s):" << elapsed_time << "frequency:"
-        << double(step / elapsed_time) << endl;
+    //end_time = clock();
+    //elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
+    //cout << "the opt= " << fm_best << endl;
+    //std::cout << "success,iterations:" << step << "  elapsed_time(s):" << elapsed_time << "frequency:"
+        //<< double(step / elapsed_time) << endl;
+    iteration = step;
     sln.coverRadius = fm_best; // 所有服务边中的最大值，即问题的输出
     Log(LogSwitch::Szx::Framework) << " worker" << workerId << " ends." << endl;
     return status;
