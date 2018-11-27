@@ -247,7 +247,6 @@ ModelManifest.xml
 /Deploy/Checker.exe
 /Deploy/Analyzer.exe
 /Deploy/log.csv
-/Deploy/Solution/*.json*
 /Deploy/Visualization/*.html
 /Lib/protobuf/lib
 /Lib/protobuf/include

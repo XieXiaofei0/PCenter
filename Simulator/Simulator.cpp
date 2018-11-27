@@ -59,61 +59,61 @@ static const vector<String> instList({
     "pmed37.n800e12564p80",
     "pmed38.n900e15898p5",
     "pmed39.n900e15896p10",
-    "pmed40.n900e15879p90",
-    "tsp.u1060.p10",
-    "tsp.u1060.p20",
-    "tsp.u1060.p30",
-    "tsp.u1060.p40",
-    "tsp.u1060.p50",
-    "tsp.u1060.p60",
-    "tsp.u1060.p70",
-    "tsp.u1060.p80",
-    "tsp.u1060.p90",
-    "tsp.u1060.p100",
-    "tsp.u1060.p110",
-    "tsp.u1060.p120",
-    "tsp.u1060.p130",
-    "tsp.u1060.p140",
-    "tsp.u1060.p150",
-    "tsp.rl1323.p10",
-    "tsp.rl1323.p20",
-    "tsp.rl1323.p30",
-    "tsp.rl1323.p40",
-    "tsp.rl1323.p50",
-    "tsp.rl1323.p60",
-    "tsp.rl1323.p70",
-    "tsp.rl1323.p80",
-    "tsp.rl1323.p90",
-    "tsp.rl1323.p100",
-    "tsp.u1817.p10",
-    "tsp.u1817.p20",
-    "tsp.u1817.p30",
-    "tsp.u1817.p40",
-    "tsp.u1817.p50",
-    "tsp.u1817.p60",
-    "tsp.u1817.p70",
-    "tsp.u1817.p80",
-    "tsp.u1817.p90",
-    "tsp.u1817.p100",
-    "tsp.u1817.p110",
-    "tsp.u1817.p120",
-    "tsp.u1817.p130",
-    "tsp.u1817.p140",
-    "tsp.u1817.p150",
-    "tsp.pcb3038.p10",
-    "tsp.pcb3038.p20",
-    "tsp.pcb3038.p30",
-    "tsp.pcb3038.p40",
-    "tsp.pcb3038.p50",
-    "tsp.pcb3038.p100",
-    "tsp.pcb3038.p150",
-    "tsp.pcb3038.p200",
-    "tsp.pcb3038.p250",
-    "tsp.pcb3038.p300",
-    "tsp.pcb3038.p350",
-    "tsp.pcb3038.p400",
-    "tsp.pcb3038.p450",
-    "tsp.pcb3038.p500"
+    "pmed40.n900e15879p90"
+    //"tsp.u1060.p10",
+    //"tsp.u1060.p20",
+    //"tsp.u1060.p30",
+    //"tsp.u1060.p40",
+    //"tsp.u1060.p50",
+    //"tsp.u1060.p60",
+    //"tsp.u1060.p70",
+    //"tsp.u1060.p80",
+    //"tsp.u1060.p90",
+    //"tsp.u1060.p100",
+    //"tsp.u1060.p110",
+    //"tsp.u1060.p120",
+    //"tsp.u1060.p130",
+    //"tsp.u1060.p140",
+    //"tsp.u1060.p150",
+    //"tsp.rl1323.p10",
+    //"tsp.rl1323.p20",
+    //"tsp.rl1323.p30",
+    //"tsp.rl1323.p40",
+    //"tsp.rl1323.p50",
+    //"tsp.rl1323.p60",
+    //"tsp.rl1323.p70",
+    //"tsp.rl1323.p80",
+    //"tsp.rl1323.p90",
+    //"tsp.rl1323.p100",
+    //"tsp.u1817.p10",
+    //"tsp.u1817.p20",
+    //"tsp.u1817.p30",
+    //"tsp.u1817.p40",
+    //"tsp.u1817.p50",
+    //"tsp.u1817.p60",
+    //"tsp.u1817.p70",
+    //"tsp.u1817.p80",
+    //"tsp.u1817.p90",
+    //"tsp.u1817.p100",
+    //"tsp.u1817.p110",
+    //"tsp.u1817.p120",
+    //"tsp.u1817.p130",
+    //"tsp.u1817.p140",
+    //"tsp.u1817.p150",
+    //"tsp.pcb3038.p10",
+    //"tsp.pcb3038.p20",
+    //"tsp.pcb3038.p30",
+    //"tsp.pcb3038.p40",
+    //"tsp.pcb3038.p50",
+    //"tsp.pcb3038.p100",
+    //"tsp.pcb3038.p150",
+    //"tsp.pcb3038.p200",
+    //"tsp.pcb3038.p250",
+    //"tsp.pcb3038.p300",
+    //"tsp.pcb3038.p350",
+    //"tsp.pcb3038.p400",
+    //"tsp.pcb3038.p450",
+    //"tsp.pcb3038.p500"
 });
 
 void Simulator::initDefaultEnvironment() {
@@ -197,10 +197,11 @@ void Simulator::run(const String &envPath) {
 void Simulator::debug() {
     Task task;
     task.instSet = "";
-    task.instId = "pmed1.n100e198p5";
-    task.randSeed = "1500972793";
-    //task.randSeed = to_string(RandSeed::generate());
-    task.timeout = "180";
+    task.instId = "pmed4.n100e196p20";
+    //task.randSeed = "1500972793";
+    //task.randSeed = "1542089240";       //pmed4算例：动作对都在禁忌中的随机种子
+    task.randSeed = to_string(Random::generateSeed());
+    task.timeout = "100";
     //task.maxIter = "1000000000";
     task.jobNum = "1";
     task.cfgPath = Env::DefaultCfgPath();
@@ -215,7 +216,7 @@ void Simulator::benchmark(int repeat) {
     task.instSet = "";
     //task.timeout = "180";
     //task.maxIter = "1000000000";
-    task.timeout = "3600";
+    task.timeout = "60";
     //task.maxIter = "1000000000";
     task.jobNum = "1";
     task.cfgPath = Env::DefaultCfgPath();
