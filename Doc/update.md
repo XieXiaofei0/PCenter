@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+影响很大问题：
+
+=======
+>>>>>>> aa51253c04ae15ed2b174cb74d907f81a99ba91b
 1.findbestaction：
 
 ​       a.直接复制两个FsnodeTable和DistanceTable花费太长时间(vector<vector<int>> F=F),
@@ -23,7 +28,11 @@
 
 
 
+<<<<<<< HEAD
+影响很小的问题：
+=======
 小问题：
+>>>>>>> aa51253c04ae15ed2b174cb74d907f81a99ba91b
 
 4.利用各种C++库中的数据结构：set，list，pair等。
 

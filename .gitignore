@@ -250,3 +250,4 @@ ModelManifest.xml
 /Deploy/Visualization/*.html
 /Lib/protobuf/lib
 /Lib/protobuf/include
+/Deploy/log_pmed.csv

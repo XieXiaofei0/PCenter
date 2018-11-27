@@ -21,20 +21,7 @@
 #include "LogSwitch.h"
 #include "Problem.h"
 
-const int INF = 1000000000;
-
 namespace szx {
-
-//struct BestAction {       //邻域动作定义
-//    int addServiceNode;     //要增加的服务节点
-//    int deleteSericeNodeIndex;    //要删除的服务节点的索引
-//    int NewFuntion;        //新的目标函数值：最长的服务边长度
-//    BestAction()
-//        : addServiceNode(-1)
-//        , deleteSericeNodeIndex(-1)
-//        , NewFuntion(INF) {
-//    }
-//};
 
 class Solver {
     #pragma region Type
@@ -218,19 +205,14 @@ public:
 public:
     int findnewServiceNode();        //构造初始解时找新的服务节点算法
     void findaddNodesTS(std::vector<int> &nodes);     //局部搜索中查找可变为服务节点的用户节点数组,并返回当前的目标函数值
-    //void findbestAction(const std::vector<int> &addservicenodes, BestAction &bestmoveTS, BestAction &bestmoveNTS);    //局部搜索中找到最好的邻域动作
-    //void findbestAction(const std::vector<int> &addservicenodes, std::vector<BestAction> &bestmoveTS, std::vector<BestAction> &bestmoveNTS);    //局部搜索中找到最好的邻域动作
     void findbestAction(const std::vector<int> &addservicenodes);
-    //int makebestAction(const BestAction &adddeletenodepair);       //局部搜索中做最好的邻域动作并返回新的目标函数值
     int makebestAction(const std::pair<int, int> &best);
 public:
     void findminNode(int indexnode, int servicelength, std::vector<int> &nodes);    //找到比当前最大服务边短的节点
     void updateClientServiced(int newservicenode);      //更新用户节点数组
     int updateAddFacility(int addservicenode, std::vector<std::vector<int>> &Ftable, std::vector<std::vector<int>> &Dtable); //添加新的服务节点后更新F表和D表返回新的目标函数值
     int findNextServiceNode(const int deleteservicenode);   //根据删除的服务节点更新F表和D表
-    //int compareByDistance(const void *a, const void *b);     //根据距离长短进行排序函数
     void findNw(const int &node);   //针对每个节点，与其他节点的距离长短进行排序
-    void deleteNode(const int &node);    //删除节点node后，F表和D表的恢复
 //end Honesty
     #pragma endregion Method
 
