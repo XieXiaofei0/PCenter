@@ -230,6 +230,7 @@ public:
     int findNextServiceNode(const int deleteservicenode);   //根据删除的服务节点更新F表和D表
     //int compareByDistance(const void *a, const void *b);     //根据距离长短进行排序函数
     void findNw(const int &node);   //针对每个节点，与其他节点的距离长短进行排序
+    void deleteNode(const int &node);    //删除节点node后，F表和D表的恢复
 //end Honesty
     #pragma endregion Method
 
@@ -272,6 +273,9 @@ public:
     std::vector<std::vector<int>> TabuTable;         //tabu table
     std::vector<std::vector<int>> NwTable;
     
+    std::vector<int> longedgeMap;    // 记录删除某节点之后产生的最长服务边
+    std::vector<std::vector<int>> FTable;    //Temporary FTable and DTable
+    std::vector<std::vector<int>> DTable;
     std::vector<std::pair<int, int>> Nw;  //temporary variable used in qsort
     std::vector<std::pair<int, int>> bestactionTS;
     std::vector<std::pair<int, int>> bestactionNTS;

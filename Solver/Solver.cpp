@@ -310,8 +310,11 @@ bool Solver::optimize(Solution &sln, ID workerId) {
     for (int i = 0; i < nodeNum; i++) {
         FsnodeTable.push_back(std::vector<int>());
         DistanceTable.push_back(std::vector<int>());
+        FTable.push_back(std::vector<int>());
+        DTable.push_back(std::vector<int>());
         TabuTable.push_back(std::vector<int>());
         NwTable.push_back(std::vector<int>());
+        longedgeMap.push_back(INF);
         pair<int, int> pair(-1,-1);
         Nw.push_back(pair);
         for (int j = 0; j < nodeNum; j++) {
@@ -321,6 +324,8 @@ bool Solver::optimize(Solution &sln, ID workerId) {
         for (int j = 0; j < 2; j++) {
             FsnodeTable[i].push_back(-1);
             DistanceTable[i].push_back(-1);
+            DTable[i].push_back(-1);
+            FTable[i].push_back(-1);
         }
     }
 
@@ -413,8 +418,8 @@ void Solver::TabuSearch(const int &order) {               //check:yes.      两个
         int index = rand() % ((*bestaction).size());
         int newfun = INF;
         //test
-        cout << "iter: " << iter << endl;
-        cout << "swap:" << (*bestaction)[index].first << " " << ServiceNodes[(*bestaction)[index].second] << endl;
+       // cout << "iter: " << iter << endl;
+        //cout << "swap:" << (*bestaction)[index].first << " " << ServiceNodes[(*bestaction)[index].second] << endl;
         newfun = makebestAction((*bestaction)[index]);
         if (newfun < bestsolu) {
             bestsolu = newfun;
@@ -477,18 +482,39 @@ void Solver::findbestAction(const std::vector<int> &addservicenodes) {
     int tabufc = INF;
     int notabufc = INF;
     int newfunction = INF;
+    //for (int i = 0; i < nodeNum; i++) {           //FTable和DTable用作保留副本
+    //    FTable[i][0] = FsnodeTable[i][0];
+    //    DTable[i][0] = DistanceTable[i][0];
+    //    FTable[i][1] = FsnodeTable[i][1];
+    //    DTable[i][1] = DistanceTable[i][1];
+    //}
     for (int i = 0; i < addservicenodes.size(); i++) {
-        std::vector<std::vector<int>> FTable = FsnodeTable;
-        std::vector<std::vector<int>> DTable = DistanceTable;
+        //std::vector<std::vector<int>> FTable = FsnodeTable;
+        //std::vector<std::vector<int>> DTable = DistanceTable;
+        for (int i = 0; i < nodeNum; i++) {           //FTable和DTable用作保留副本
+            FTable[i][0] = FsnodeTable[i][0];
+            DTable[i][0] = DistanceTable[i][0];
+            FTable[i][1] = FsnodeTable[i][1];
+            DTable[i][1] = DistanceTable[i][1];
+        }
+        for (int i = 0; i < ServiceNodes.size(); i++) {
+            longedgeMap[ServiceNodes[i]] = 0;
+        }
         int fun = updateAddFacility(addservicenodes[i], FTable, DTable);    //fun为加入服务节点之后的目标函数值
+        for (int i = 0; i < nodeNum; i++) {
+            if (DTable[i][1] > longedgeMap[FTable[i][0]])
+                longedgeMap[FTable[i][0]] = DTable[i][1];
+        }
+        
         for (int j = 0; j < ServiceNodes.size(); j++) {
-            int maxlen = 0;                                //记录删除某一服务节点后，产生的最长服务边的长度
-            for (int v = 0; v < nodeNum; v++) {
-                if (FTable[v][0] == ServiceNodes[j]) {
-                    if (maxlen < DTable[v][1])maxlen = DTable[v][1];
-                }
-            }
-            newfunction = std::max(fun, maxlen);
+            //int maxlen = 0;                                //记录删除某一服务节点后，产生的最长服务边的长度
+            //for (int v = 0; v < nodeNum; v++) {
+            //    if (FTable[v][0] == ServiceNodes[j]) {
+            //        if (maxlen < DTable[v][1])maxlen = DTable[v][1];
+            //    }
+            //}
+            newfunction = std::max(fun, longedgeMap[ServiceNodes[j]]);
+            //newfunction = std::max(fun, maxlen);
             if (iter < TabuTable[addservicenodes[i]][ServiceNodes[j]]) //节点对在禁忌中
             {
                 if (newfunction <= tabufc) {
@@ -515,6 +541,7 @@ void Solver::findbestAction(const std::vector<int> &addservicenodes) {
                 }
             }
         }
+        //deleteNode(addservicenodes[i]);
     }
     //判断禁忌条件
     if ((tabufc < bestsolu) && (tabufc < notabufc)) {
@@ -533,7 +560,8 @@ int Solver::makebestAction(const std::pair<int,int> &best) {                    
     int newfun = 0;
     //int scaleconstant = (int)(nodeNum*0.5 + centerNum);
     //int scaleconstant = (int)(nodeNum*0.8);
-    //TabuTable[adddeletenodepair.addServiceNode][deleteservicenode] = iter + scaleconstant + rand.pick(1, centerNum);   //更新禁忌表
+    //TabuTable[best.first][deleteservicenode] = iter + scaleconstant + rand.pick(1, centerNum);   //更新禁忌表
+   // TabuTable[deleteservicenode][best.first] = iter + scaleconstant + rand.pick(1, centerNum);
     TabuTable[deleteservicenode][best.first] = 0.3*nodeNum + (rand() % centerNum) + iter;
     TabuTable[best.first][deleteservicenode] = TabuTable[deleteservicenode][best.first];
     ServiceNodes[best.second] = best.first;    //更新服务节点数组
@@ -628,6 +656,14 @@ void Solver::findNw(const int &node) {
     }
 }
 
+void Solver::deleteNode(const int &node) {
+    for (int i = 0; i < nodeNum; i++) {
+        FTable[i][0] = FsnodeTable[i][0];
+        DTable[i][1] = DistanceTable[i][1];
+        DTable[i][0] = DistanceTable[i][0];
+        FTable[i][1] = FsnodeTable[i][1];
+    }
+}
 #pragma endregion Solver
 
 }
