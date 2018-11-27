@@ -528,12 +528,12 @@ int Solver::makebestAction(const std::pair<int,int> &best) {                    
     
     int deleteservicenode = ServiceNodes[best.second];
     int newfun = 0;
-    //int scaleconstant = (int)(nodeNum*0.5 + centerNum);
+    int scaleconstant = (int)(nodeNum*0.5 + centerNum);
     //int scaleconstant = (int)(nodeNum*0.8);
-    //TabuTable[best.first][deleteservicenode] = iter + scaleconstant + rand.pick(1, centerNum);   //更新禁忌表
-   // TabuTable[deleteservicenode][best.first] = iter + scaleconstant + rand.pick(1, centerNum);
-    TabuTable[deleteservicenode][best.first] = 0.3*nodeNum + (rand() % centerNum) + iter;
-    TabuTable[best.first][deleteservicenode] = TabuTable[deleteservicenode][best.first];
+    TabuTable[best.first][deleteservicenode] = iter + scaleconstant + rand.pick(1, centerNum);   //更新禁忌表
+    TabuTable[deleteservicenode][best.first] = iter + scaleconstant + rand.pick(1, centerNum);
+    //TabuTable[deleteservicenode][best.first] = 0.3*nodeNum + (rand() % centerNum) + iter;
+    //TabuTable[best.first][deleteservicenode] = TabuTable[deleteservicenode][best.first];
     ServiceNodes[best.second] = best.first;    //更新服务节点数组
     int fun = updateAddFacility(best.first, FsnodeTable, DistanceTable);  //首先更新加入服务节点的F表和D表
     for (int i = 0; i < nodeNum; i++)    //删除节点后更新F表和D表

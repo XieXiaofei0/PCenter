@@ -11,7 +11,7 @@ int main() {
     Simulator sim;
     //for (int i = 0; i < 10; i++)sim.debug();
     //sim.debug();
-    sim.benchmark(1);
+    sim.benchmark(3);
     //sim.parallelBenchmark(1);
     //sim.generateInstance();
     //for (int i = 1; i <= 40; ++i) { sim.convertPmedInstance("Instance/pmed/pmed", i); }
