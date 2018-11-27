@@ -543,11 +543,11 @@ void Solver::findPair_(int s, int w, int step) {
     set_L_notabu.clear();
     set_L_tabu.clear();
     //test
-    cout << "the will added nodes:" << endl;
-    for (int i : Nwk) {
-        cout << i << " ";
-    }
-    cout << endl;
+    //cout << "the will added nodes:" << endl;
+    //for (int i : Nwk) {
+    //    cout << i << " ";
+    //}
+    //cout << endl;
     //test end
     for (int i = 0; i < N_v; i++) { //记录副本，方便恢复
         D[i][0] = list_D[i][0];
@@ -599,35 +599,35 @@ void Solver::findPair_(int s, int w, int step) {
         }
     }
     //test
-    cout << "bestsolu: " << fm_best << endl;
-    cout << "tabu_fm: " << fm_tabu << endl;
-    cout << "notabu_fm: " << fm_notabu << endl;
-    cout << "tabu_pair: " << set_L_tabu.size() << endl;
-    if (set_L_tabu.size() != 0) {
-        for (pair<int, int> i : set_L_tabu) {
-            cout << "  " << i.first << "  " << i.second << endl;
-        }
-        cout << endl;
-    }
-    cout << "notabu_pair: " << set_L_notabu.size() << endl;
-    if (set_L_notabu.size() != 0) {
-        for (pair<int, int> i : set_L_notabu) {
-            cout << "  " << i.first << "  " << i.second << endl;
-        }
-        cout << endl;
-    }
+    //cout << "bestsolu: " << fm_best << endl;
+    //cout << "tabu_fm: " << fm_tabu << endl;
+    //cout << "notabu_fm: " << fm_notabu << endl;
+    //cout << "tabu_pair: " << set_L_tabu.size() << endl;
+    //if (set_L_tabu.size() != 0) {
+    //    for (pair<int, int> i : set_L_tabu) {
+    //        cout << "  " << i.first << "  " << i.second << endl;
+    //    }
+    //    cout << endl;
+    //}
+    //cout << "notabu_pair: " << set_L_notabu.size() << endl;
+    //if (set_L_notabu.size() != 0) {
+    //    for (pair<int, int> i : set_L_notabu) {
+    //        cout << "  " << i.first << "  " << i.second << endl;
+    //    }
+    //    cout << endl;
+    //}
     //test end
     // 判断解禁条件
     if (fm_tabu < fm_best && fm_tabu < fm_notabu) {
         set_L = &set_L_tabu;
         //test
-        cout << "make tabu pair" << endl;
+        //cout << "make tabu pair" << endl;
         //test end
     } else {
         if (set_L_notabu.size() == 0) {
             set_L = &set_L_tabu;
             //test
-            cout << "make tabu pair" << endl;
+            //cout << "make tabu pair" << endl;
             //test end
         } else {
             set_L = &set_L_notabu;
@@ -649,7 +649,7 @@ void Solver::makeSwap(pair<int, int> s_w, int step, Solution &sln) {
     removeFacility(s_w.first);
     fm_cur = Sc_cur;
     //test
-    cout << "swap: " << s_w.second << " " << s_w.first << endl;
+    //cout << "swap: " << s_w.second << " " << s_w.first << endl;
     if (fm_cur < fm_best) {
         fm_best = fm_cur;
         end_time = clock();
@@ -700,28 +700,28 @@ bool Solver::optimize(Solution &sln, ID workerId) {
     while (!timer.isTimeOut()) {
         findLongestServeEdge();
         //test
-        cout << "iter: " << step << endl;
-        cout << "the longest service_edges: " << endl;
-        for (int i = 0; i < longest_serve_edge.size(); i++)
-            cout << "  " << i << ": " << longest_serve_edge[i].first << " " << longest_serve_edge[i].second << endl;
-        cout << endl;
+        //cout << "iter: " << step << endl;
+        //cout << "the longest service_edges: " << endl;
+        //for (int i = 0; i < longest_serve_edge.size(); i++)
+        //    cout << "  " << i << ": " << longest_serve_edge[i].first << " " << longest_serve_edge[i].second << endl;
+        //cout << endl;
         //test end
         s_w = longest_serve_edge[rand() % (longest_serve_edge.size())];
         //test
-        cout << "the longest edge_pair : " << s_w.first << " " << s_w.second << endl;
+        //cout << "the longest edge_pair : " << s_w.first << " " << s_w.second << endl;
         //test end
         findPair_(s_w.first, s_w.second, step);
         random_swap_index = rand() % ((*set_L).size());
         //test
-        cout << "make pair_index：" << random_swap_index << endl;
-        cout << "the true swap pair is : " << (*set_L)[random_swap_index].first << " " << (*set_L)[random_swap_index].second << endl << endl << endl;
+        //cout << "make pair_index：" << random_swap_index << endl;
+        //cout << "the true swap pair is : " << (*set_L)[random_swap_index].first << " " << (*set_L)[random_swap_index].second << endl << endl << endl;
         //test end
         makeSwap((*set_L)[random_swap_index], step, sln);
-        //if (fm_best == cur_pmed_opt) {
-        //    break;
-        //}
+        if (fm_best == cur_pmed_opt) {
+            break;
+        }
         //test
-        if (step == 10)break;
+        //if (step == 10)break;
         //test end
         step++;
     }
