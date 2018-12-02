@@ -298,13 +298,13 @@ void Solver::init() {
 bool Solver::optimize(Solution &sln, ID workerId) {
     Log(LogSwitch::Szx::Framework) << "worker " << workerId << " starts." << endl;
 
-    int order = 0;
-    if ((env.instPath[14] >= '0') && (env.instPath[14] <= '9'))order = (env.instPath[13] - '0') * 10 + (env.instPath[14] - '0');
-    else order = env.instPath[13] - '0';
+    int solve = matchOptimalsolve(env.instPath);
 
     nodeNum = input.graph().nodenum();
     centerNum = input.centernum();
     iter = 0;
+
+    randomNum = (int)(centerNum*(1 / 4));
 
     //Initializing all data structures  所有数据结构赋初值为-1,邻接矩阵赋最大值INF;禁忌表赋初值为0
     for (int i = 0; i < nodeNum; i++) {
@@ -314,6 +314,7 @@ bool Solver::optimize(Solution &sln, ID workerId) {
         DTable.push_back(std::vector<int>());
         TabuTable.push_back(std::vector<int>());
         NwTable.push_back(std::vector<int>());
+        isServiceNode.push_back(false);
         longedgeMap.push_back(INT_MAX);
         pair<int, int> pair(-1,-1);
         Nw.push_back(pair);
@@ -347,13 +348,13 @@ bool Solver::optimize(Solution &sln, ID workerId) {
 
     InitialSolu();
     
-    //start_time = clock();
-    TabuSearch(order);
-    //end_time = clock();
-    //elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
-    //std::cout << "  elapsed_time(s):" << elapsed_time << endl;
-    //std::cout << "success,iterations:" << iter << "  elapsed_time(s):" << elapsed_time << "frequency:"
-    //    << double(iter / elapsed_time) << endl;
+    start_time = clock();
+    TabuSearch(solve);
+    end_time = clock();
+    elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
+    std::cout << "  elapsed_time(s):" << elapsed_time << endl;
+    std::cout << "success,iterations:" << iter << "  elapsed_time(s):" << elapsed_time << "frequency:"
+        << double(iter / elapsed_time) << endl;
 
     for (ID n = 0; n < centerNum; ++n) {
         centers[n] = ServiceNodes[n];
@@ -372,9 +373,15 @@ void Solver::InitialSolu() {
     //产生centerNum个服务节点
     int centerNode = rand.pick(0, nodeNum);       //从nodeNum个节点中随机挑一个节点
     ServiceNodes[0] = centerNode;
+    //dis
+    isServiceNode[centerNode] = true;
+    //dis end
     for (int i = 0; i < nodeNum; i++)FsnodeTable[i][0] = centerNode;       //所有节点均由此服务节点服务
     for (int i = 1; i < centerNum; i++) {
         ServiceNodes[i] = findnewServiceNode();
+        //dis
+        isServiceNode[ServiceNodes[i]] = true;
+        //dis end
     }
     //初始化F表和D表
     int best = -1;
@@ -397,6 +404,7 @@ void Solver::InitialSolu() {
 }
 
 void Solver::TabuSearch(const int &order) {               //check:yes.      两个节点对连续交换的情况
+    int disturbance_interval = 0;
     while (!timer.isTimeOut()) {     //时间满足或者多次迭代次数不能更新当前历史最优解时，不断迭代更新初始解。迭代一次：找最好动作并进行更新
         std::vector<int> shorterlenNodes;          //保存比最长服务边短的边的节点（用户节点）
         findaddNodesTS(shorterlenNodes);
@@ -408,14 +416,63 @@ void Solver::TabuSearch(const int &order) {               //check:yes.      两个
         //cout << "swap:" << (*bestaction)[index].first << " " << ServiceNodes[(*bestaction)[index].second] << endl;
         newfun = makebestAction((*bestaction)[index]);
         if (newfun < bestsolu) {
+            disturbance_interval = 0;
             bestsolu = newfun;
             //end_time = clock();
             //elapsed_time = (double(end_time - start_time)) / CLOCKS_PER_SEC;
             //cout << " update:" << bestsolu << ", time used:" << elapsed_time << endl;
             iteration = iter;
-            if (bestsolu == optimum_solution[order - 1])break;
+            if (bestsolu == order)break;
         }
+        disturbance_interval++;
         iter++;
+        if (disturbance_interval == 2500) {       //2000步改进不了历史最优解，进行扰动
+            cout << "disturbance producing : " << endl;
+            random_WServiceNodes.clear();
+            random_WClientNodes.clear();
+            while ((random_WClientNodes.size() < randomNum) || (random_WServiceNodes.size() < randomNum)) {
+                if (random_WClientNodes.size() < randomNum) {
+                    random_WClientNodes.insert(rand() % ServiceNodes.size());
+                }
+                if (random_WServiceNodes.size() < randomNum) {
+                    int index = rand() % nodeNum;
+                    while (isServiceNode[index]) {
+                        index = rand() % nodeNum;
+                    }
+                    random_WServiceNodes.insert(index);
+                }
+            }
+            //for (int i = 0; i < randomNum; i++) {
+            //    random_WClientNodes.insert(ServiceNodes[rand() % ServiceNodes.size()]);
+            //    int index = rand() % nodeNum;
+            //    while (isServiceNode[index]) {
+            //        index = rand() % nodeNum;
+            //    }
+            //    random_WServiceNodes.insert(index);
+            //}
+            //if (random_WClientNodes.size() < randomNum) {
+            //    random_WClientNodes.insert(ServiceNodes[rand() % ServiceNodes.size()]);
+            //}
+            //if (random_WServiceNodes.size() < randomNum) {
+            //    int index = rand() % nodeNum;
+            //    while (isServiceNode[index]) {
+            //        index = rand() % nodeNum;
+            //    }
+            //    random_WServiceNodes.insert(index);
+            //}
+            set<int>::iterator w_ser, w_cli;
+            w_ser = random_WServiceNodes.begin();
+            w_cli = random_WClientNodes.begin();
+            for (; w_ser != random_WServiceNodes.end(); w_ser++, w_cli++) {
+                //makebestaction
+                int fun = updateAddFacility(*w_ser, FsnodeTable, DistanceTable);  //添加待加入的服务节点
+                int newfun = deleteServiceNode(ServiceNodes[*w_cli]);
+                if (newfun < bestsolu)bestsolu = newfun;
+                isServiceNode[*w_ser] = true;
+                isServiceNode[ServiceNodes[*w_cli]] = false;
+                ServiceNodes[*w_cli] = *w_ser;
+            }
+        }
     }
 }
 
@@ -523,11 +580,10 @@ void Solver::findbestAction(const std::vector<int> &addservicenodes) {
     }
 }
 
-
 int Solver::makebestAction(const std::pair<int,int> &best) {                      //check:yes。 考虑修改禁忌长度
     
     int deleteservicenode = ServiceNodes[best.second];
-    int newfun = 0;
+    //int newfun = 0;
     int scaleconstant = (int)(nodeNum*0.5 + centerNum);
     //int scaleconstant = (int)(nodeNum*0.8);
     TabuTable[best.first][deleteservicenode] = iter + scaleconstant + rand.pick(1, centerNum);   //更新禁忌表
@@ -536,23 +592,28 @@ int Solver::makebestAction(const std::pair<int,int> &best) {                    
     //TabuTable[best.first][deleteservicenode] = TabuTable[deleteservicenode][best.first];
     ServiceNodes[best.second] = best.first;    //更新服务节点数组
     int fun = updateAddFacility(best.first, FsnodeTable, DistanceTable);  //首先更新加入服务节点的F表和D表
-    for (int i = 0; i < nodeNum; i++)    //删除节点后更新F表和D表
-    {
-        if (FsnodeTable[i][0] == deleteservicenode) {
-            FsnodeTable[i][0] = FsnodeTable[i][1];
-            DistanceTable[i][0] = DistanceTable[i][1];
-            int serviceindex = findNextServiceNode(i);
-            FsnodeTable[i][1] = ServiceNodes[serviceindex];
-            DistanceTable[i][1] = aux.adjMat.at(i, FsnodeTable[i][1]);
-        } else if (FsnodeTable[i][1] == deleteservicenode) {
-            int serviceindex = findNextServiceNode(i);
-            FsnodeTable[i][1] = ServiceNodes[serviceindex];
-            DistanceTable[i][1] = aux.adjMat.at(i, FsnodeTable[i][1]);
+    //for (int i = 0; i < nodeNum; i++)    //删除节点后更新F表和D表
+    //{
+    //    if (FsnodeTable[i][0] == deleteservicenode) {
+    //        FsnodeTable[i][0] = FsnodeTable[i][1];
+    //        DistanceTable[i][0] = DistanceTable[i][1];
+    //        int serviceindex = findNextServiceNode(i);
+    //        FsnodeTable[i][1] = ServiceNodes[serviceindex];
+    //        DistanceTable[i][1] = aux.adjMat.at(i, FsnodeTable[i][1]);
+    //    } else if (FsnodeTable[i][1] == deleteservicenode) {
+    //        int serviceindex = findNextServiceNode(i);
+    //        FsnodeTable[i][1] = ServiceNodes[serviceindex];
+    //        DistanceTable[i][1] = aux.adjMat.at(i, FsnodeTable[i][1]);
 
-        } else;
-        if (newfun < DistanceTable[i][0])newfun = DistanceTable[i][0];
-    }
-    return newfun;              //返回新的目标函数值
+    //    } else;
+    //    if (newfun < DistanceTable[i][0])newfun = DistanceTable[i][0];                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      nceTable[i][0];
+    //}
+    //dis
+    isServiceNode[deleteservicenode] = false;
+    isServiceNode[best.first] = true;
+    //dis end
+    //return newfun;              //返回新的目标函数值
+    return deleteServiceNode(deleteservicenode);
 }
 
 void Solver::findminNode(int indexnode, int servicelength, std::vector<int> &nodes)    //找到比当前最大服务边短的节点   check:yes
@@ -590,6 +651,27 @@ int Solver::updateAddFacility(int addservicenode, std::vector<std::vector<int>> 
     return function;
 }
 
+int Solver::deleteServiceNode(int deletenode) {
+    int newfun = 0;
+    for (int i = 0; i < nodeNum; i++)    //删除节点后更新F表和D表
+    {
+        if (FsnodeTable[i][0] == deletenode) {
+            FsnodeTable[i][0] = FsnodeTable[i][1];
+            DistanceTable[i][0] = DistanceTable[i][1];
+            int serviceindex = findNextServiceNode(i);
+            FsnodeTable[i][1] = ServiceNodes[serviceindex];
+            DistanceTable[i][1] = aux.adjMat.at(i, FsnodeTable[i][1]);
+        } else if (FsnodeTable[i][1] == deletenode) {
+            int serviceindex = findNextServiceNode(i);
+            FsnodeTable[i][1] = ServiceNodes[serviceindex];
+            DistanceTable[i][1] = aux.adjMat.at(i, FsnodeTable[i][1]);
+
+        } else;
+        if (newfun < DistanceTable[i][0])newfun = DistanceTable[i][0];                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+    }
+    return newfun;
+}
+
 int Solver::findNextServiceNode(const int index) {           //check:yes   可优化                //test
     int second_Distance = INT_MAX;                   //记录次短距离服务节点的索引
     vector<int> nextNodes;
@@ -624,6 +706,20 @@ void Solver::findNw(const int &node) {
     }
 }
 
+int Solver::matchOptimalsolve(const string &file) {
+    ifstream findsolve;
+    findsolve.open("Instance/tspsolve.txt");
+    string line,str;
+    while (getline(findsolve,line)) {
+        istringstream stream(line);
+        stream >> str;
+        if (str.c_str() == file) {
+            stream >> str;
+            findsolve.close();
+            return stoi(str.c_str());
+        }
+    }
+}
 #pragma endregion Solver
 
 }

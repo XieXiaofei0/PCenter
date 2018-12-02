@@ -211,8 +211,10 @@ public:
     void findminNode(int indexnode, int servicelength, std::vector<int> &nodes);    //找到比当前最大服务边短的节点
     void updateClientServiced(int newservicenode);      //更新用户节点数组
     int updateAddFacility(int addservicenode, std::vector<std::vector<int>> &Ftable, std::vector<std::vector<int>> &Dtable); //添加新的服务节点后更新F表和D表返回新的目标函数值
+    int deleteServiceNode(int deletenode);   //删除某服务节点的更新
     int findNextServiceNode(const int deleteservicenode);   //根据删除的服务节点更新F表和D表
     void findNw(const int &node);   //针对每个节点，与其他节点的距离长短进行排序
+    int matchOptimalsolve(const std::string &file);
 //end Honesty
     #pragma endregion Method
 
@@ -236,13 +238,15 @@ public:
     Iteration iteration;
 
 //by Honesty
-    int optimum_solution[40] = { 127,98,93,74,48,84,64,55,37,20,59,51,36,26,18,47,39,28,18,13,40,38,22,15,11,38,32,18,
-13,9,30,29,15,11,30,27,15,29,23,13 };
 
     ID nodeNum;
     ID centerNum;
     ID bestsolu;      //keep the best solution of history
     ID iter;          //Iterative counting
+
+    //disturbance
+    ID randomNum;
+    //disturbance end
 
     double start_time;       //camulate tabusearch's time
     double end_time;
@@ -262,6 +266,13 @@ public:
     std::vector<std::pair<int, int>> bestactionTS;
     std::vector<std::pair<int, int>> bestactionNTS;
     std::vector<std::pair<int, int>> *bestaction;
+
+    //Structures used in disturbance process
+    std::vector<bool> isServiceNode;          //标记节点i是否是服务节点
+    std::set<int> random_WServiceNodes;         //随机的待服务节点
+    std::set<int> random_WClientNodes;          //随机的待客户节点
+    //end disturbance
+
 //end Honesty
     #pragma endregion Field
 }; // Solver 

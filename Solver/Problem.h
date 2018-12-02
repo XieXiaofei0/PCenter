@@ -36,7 +36,7 @@ public:
             // TODO[0]: fill the submission information.
             submission.set_author("Xie Xiaofei");
             submission.set_algorithm("tabulocalsearch");
-            submission.set_cpu("AMD Athlon(tm) X4 640 Processor 3.00GHz");
+            submission.set_cpu("AMD Athlon X4 640 3.00GHz");
             submission.set_ram("4G 1333MHz");
             submission.set_language("C++");
             submission.set_compiler("VS2017");
