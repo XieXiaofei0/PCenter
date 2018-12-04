@@ -304,7 +304,7 @@ bool Solver::optimize(Solution &sln, ID workerId) {
     centerNum = input.centernum();
     iter = 0;
 
-    randomNum = (int)(centerNum*(1 / 4));
+    disParameter = (int)(centerNum*(1 / 4));
 
     //Initializing all data structures  ËùÓĞÊı¾İ½á¹¹¸³³õÖµÎª-1,ÁÚ½Ó¾ØÕó¸³×î´óÖµINF;½û¼É±í¸³³õÖµÎª0
     for (int i = 0; i < nodeNum; i++) {
@@ -403,6 +403,12 @@ void Solver::InitialSolu() {
     //cout << "init best:" << bestsolu << " , init size: " << ServiceNodes.size() << endl;
 }
 
+int compareByDisDescend(const void *a, const void *b) {   //·şÎñ±ß³¤°´ÕÕ½µĞòÅÅÁĞ
+    pair<int, int> *p1 = (pair<int, int>*)a;
+    pair<int, int> *p2 = (pair<int, int>*)b;
+    return p2->second - p1->second;
+}
+
 void Solver::TabuSearch(const int &order) {               //check:yes.      Á½¸ö½Úµã¶ÔÁ¬Ğø½»»»µÄÇé¿ö
     int disturbance_interval = 0;
     while (!timer.isTimeOut()) {     //Ê±¼äÂú×ã»òÕß¶à´Îµü´ú´ÎÊı²»ÄÜ¸üĞÂµ±Ç°ÀúÊ·×îÓÅ½âÊ±£¬²»¶Ïµü´ú¸üĞÂ³õÊ¼½â¡£µü´úÒ»´Î£ºÕÒ×îºÃ¶¯×÷²¢½øĞĞ¸üĞÂ
@@ -426,53 +432,97 @@ void Solver::TabuSearch(const int &order) {               //check:yes.      Á½¸ö
         }
         disturbance_interval++;
         iter++;
-        if (disturbance_interval == 2500) {       //2000²½¸Ä½ø²»ÁËÀúÊ·×îÓÅ½â£¬½øĞĞÈÅ¶¯
+        if (disturbance_interval == 2000) {
             cout << "disturbance producing : " << endl;
-            random_WServiceNodes.clear();
-            random_WClientNodes.clear();
-            while ((random_WClientNodes.size() < randomNum) || (random_WServiceNodes.size() < randomNum)) {
-                if (random_WClientNodes.size() < randomNum) {
-                    random_WClientNodes.insert(rand() % ServiceNodes.size());
+            disturbance_WServiceNodes.clear();
+            disturbance_WClientNodes.clear();
+            for (int i = 0; i < nodeNum; i++) {         //ÀûÓÃÊı×éNw½øĞĞ·şÎñ±ß³¤µÄ½µĞòÅÅĞò
+                Nw[i].first = i;                      //¼ÇÂ¼½Úµã±àºÅ
+                Nw[i].second = DistanceTable[i][0];   //¼ÇÂ¼³¤¶È
+            }
+            qsort(&(Nw.data()[0]), nodeNum, sizeof(pair<int, int>), compareByDisDescend);
+            for (int i = 0; i < nodeNum; i++) {                                    //Ì°ĞÄµÄÕÒ1/4¸ö·şÎñ½Úµã½øĞĞÌæ»»
+                if (disturbance_WClientNodes.insert(pair<int, int>(FsnodeTable[Nw[i].first][0], Nw[i].first)).second) {
+                    waitSerNodes.clear();
+                    findminNode(Nw[i].first,DistanceTable[Nw[i].first][0],waitSerNodes);
+                    while (!disturbance_WServiceNodes.insert(waitSerNodes[rand() % waitSerNodes.size()]).second) {
+                    }
                 }
-                if (random_WServiceNodes.size() < randomNum) {
+                if (disturbance_WClientNodes.size() == disParameter)break;
+            }
+            while (disturbance_WClientNodes.size() <= (disParameter * 2)) {
+                if (disturbance_WClientNodes.insert(pair<int, int>(ServiceNodes[rand() % ServiceNodes.size()], -1)).second) {
                     int index = rand() % nodeNum;
-                    while (isServiceNode[index]) {
+                    while ((isServiceNode[index])||(!disturbance_WServiceNodes.insert(index).second)) {
                         index = rand() % nodeNum;
                     }
-                    random_WServiceNodes.insert(index);
                 }
             }
-            //for (int i = 0; i < randomNum; i++) {
-            //    random_WClientNodes.insert(ServiceNodes[rand() % ServiceNodes.size()]);
-            //    int index = rand() % nodeNum;
-            //    while (isServiceNode[index]) {
-            //        index = rand() % nodeNum;
-            //    }
-            //    random_WServiceNodes.insert(index);
-            //}
-            //if (random_WClientNodes.size() < randomNum) {
-            //    random_WClientNodes.insert(ServiceNodes[rand() % ServiceNodes.size()]);
-            //}
-            //if (random_WServiceNodes.size() < randomNum) {
-            //    int index = rand() % nodeNum;
-            //    while (isServiceNode[index]) {
-            //        index = rand() % nodeNum;
-            //    }
-            //    random_WServiceNodes.insert(index);
-            //}
-            set<int>::iterator w_ser, w_cli;
-            w_ser = random_WServiceNodes.begin();
-            w_cli = random_WClientNodes.begin();
-            for (; w_ser != random_WServiceNodes.end(); w_ser++, w_cli++) {
-                //makebestaction
-                int fun = updateAddFacility(*w_ser, FsnodeTable, DistanceTable);  //Ìí¼Ó´ı¼ÓÈëµÄ·şÎñ½Úµã
-                int newfun = deleteServiceNode(ServiceNodes[*w_cli]);
+            unordered_map<int, int>::iterator m;
+            unordered_set<int>::iterator s;
+            m = disturbance_WClientNodes.begin();
+            s = disturbance_WServiceNodes.begin();
+            for (; m != disturbance_WClientNodes.end(), s != disturbance_WServiceNodes.end(); s++, m++) {
+                int fun = updateAddFacility(*s, FsnodeTable, DistanceTable);  //Ìí¼Ó´ı¼ÓÈëµÄ·şÎñ½Úµã
+                int newfun = deleteServiceNode(m->first);
                 if (newfun < bestsolu)bestsolu = newfun;
-                isServiceNode[*w_ser] = true;
-                isServiceNode[ServiceNodes[*w_cli]] = false;
-                ServiceNodes[*w_cli] = *w_ser;
+                isServiceNode[*s] = true;
+                isServiceNode[m->first] = false;
+                for (int i = 0; i < centerNum; i++) {
+                    if (ServiceNodes[i] == m->first) {
+                        ServiceNodes[i] = *s;
+                        break;
+                    }
+                }
             }
         }
+        //if (disturbance_interval == 2000) {       //2000²½¸Ä½ø²»ÁËÀúÊ·×îÓÅ½â£¬½øĞĞÈÅ¶¯
+        //    cout << "disturbance producing : " << endl;
+        //    random_WServiceNodes.clear();
+        //    random_WClientNodes.clear();
+        //    while ((random_WClientNodes.size() < randomNum) || (random_WServiceNodes.size() < randomNum)) {
+        //        if (random_WClientNodes.size() < randomNum) {
+        //            random_WClientNodes.insert(rand() % ServiceNodes.size());
+        //        }
+        //        if (random_WServiceNodes.size() < randomNum) {
+        //            int index = rand() % nodeNum;
+        //            while (isServiceNode[index]) {
+        //                index = rand() % nodeNum;
+        //            }
+        //            random_WServiceNodes.insert(index);
+        //        }
+        //    }
+        //    //for (int i = 0; i < randomNum; i++) {
+        //    //    random_WClientNodes.insert(ServiceNodes[rand() % ServiceNodes.size()]);
+        //    //    int index = rand() % nodeNum;
+        //    //    while (isServiceNode[index]) {
+        //    //        index = rand() % nodeNum;
+        //    //    }
+        //    //    random_WServiceNodes.insert(index);
+        //    //}
+        //    //if (random_WClientNodes.size() < randomNum) {
+        //    //    random_WClientNodes.insert(ServiceNodes[rand() % ServiceNodes.size()]);
+        //    //}
+        //    //if (random_WServiceNodes.size() < randomNum) {
+        //    //    int index = rand() % nodeNum;
+        //    //    while (isServiceNode[index]) {
+        //    //        index = rand() % nodeNum;
+        //    //    }
+        //    //    random_WServiceNodes.insert(index);
+        //    //}
+        //    set<int>::iterator w_ser, w_cli;
+        //    w_ser = random_WServiceNodes.begin();
+        //    w_cli = random_WClientNodes.begin();
+        //    for (; w_ser != random_WServiceNodes.end(); w_ser++, w_cli++) {
+        //        //makebestaction
+        //        int fun = updateAddFacility(*w_ser, FsnodeTable, DistanceTable);  //Ìí¼Ó´ı¼ÓÈëµÄ·şÎñ½Úµã
+        //        int newfun = deleteServiceNode(ServiceNodes[*w_cli]);
+        //        if (newfun < bestsolu)bestsolu = newfun;
+        //        isServiceNode[*w_ser] = true;
+        //        isServiceNode[ServiceNodes[*w_cli]] = false;
+        //        ServiceNodes[*w_cli] = *w_ser;
+        //    }
+        //}
     }
 }
 
@@ -690,7 +740,7 @@ int Solver::findNextServiceNode(const int index) {           //check:yes   ¿ÉÓÅ»
     return nextNodes[rand() % nextNodes.size()];
 }
 
-int compareByDistance(const void *a,const void *b) {
+int compareByDistance(const void *a,const void *b) {    //¾àÀë°´ÕÕÉıĞòÅÅÁĞ
     pair<int, int> *p1 = (pair<int, int>*)a, *p2 = (pair<int, int>*)b;
     return p1->second - p2->second;
 }

@@ -245,7 +245,7 @@ public:
     ID iter;          //Iterative counting
 
     //disturbance
-    ID randomNum;
+    ID disParameter;
     //disturbance end
 
     double start_time;       //camulate tabusearch's time
@@ -269,8 +269,9 @@ public:
 
     //Structures used in disturbance process
     std::vector<bool> isServiceNode;          //标记节点i是否是服务节点
-    std::set<int> random_WServiceNodes;         //随机的待服务节点
-    std::set<int> random_WClientNodes;          //随机的待客户节点
+    std::unordered_set<int> disturbance_WServiceNodes;         //随机的待服务节点
+    std::unordered_map<int, int> disturbance_WClientNodes;          //随机的待客户节点
+    std::vector<int> waitSerNodes;
     //end disturbance
 
 //end Honesty
