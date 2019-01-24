@@ -304,7 +304,7 @@ bool Solver::optimize(Solution &sln, ID workerId) {
     centerNum = input.centernum();
     iter = 0;
 
-    disParameter = (int)(centerNum*(1 / 4));
+    disParameter = centerNum/5;
 
     //Initializing all data structures  所有数据结构赋初值为-1,邻接矩阵赋最大值INF;禁忌表赋初值为0
     for (int i = 0; i < nodeNum; i++) {
@@ -369,6 +369,7 @@ bool Solver::optimize(Solution &sln, ID workerId) {
     Log(LogSwitch::Szx::Framework) << "worker " << workerId << " ends." << endl;
     return status;
 }
+
 void Solver::InitialSolu() {
     //产生centerNum个服务节点
     int centerNode = rand.pick(0, nodeNum);       //从nodeNum个节点中随机挑一个节点
@@ -433,7 +434,14 @@ void Solver::TabuSearch(const int &order) {               //check:yes.      两个
         disturbance_interval++;
         iter++;
         if (disturbance_interval == 2000) {
+
+            //test
             cout << "disturbance producing : " << endl;
+            cout << "The center nodes are : ";
+            for (int i = 0; i < ServiceNodes.size(); i++)cout << ServiceNodes[i] << " ";
+            cout << endl;
+            //cout << "disturbance number is :" << disParameter << endl;
+
             disturbance_WServiceNodes.clear();
             disturbance_WClientNodes.clear();
             for (int i = 0; i < nodeNum; i++) {         //利用数组Nw进行服务边长的降序排序
@@ -448,9 +456,12 @@ void Solver::TabuSearch(const int &order) {               //check:yes.      两个
                     while (!disturbance_WServiceNodes.insert(waitSerNodes[rand() % waitSerNodes.size()]).second) {
                     }
                 }
-                if (disturbance_WClientNodes.size() == disParameter)break;
+                if (disturbance_WClientNodes.size() == disParameter) {
+                    cout << " The size of disturbance_WClientNodes :" << disturbance_WClientNodes.size() << endl;
+                    break;
+                }
             }
-            while (disturbance_WClientNodes.size() <= (disParameter * 2)) {
+            while (disturbance_WClientNodes.size() <= (disParameter * 2)) {           //随机找1/4个服务节点进行替换
                 if (disturbance_WClientNodes.insert(pair<int, int>(ServiceNodes[rand() % ServiceNodes.size()], -1)).second) {
                     int index = rand() % nodeNum;
                     while ((isServiceNode[index])||(!disturbance_WServiceNodes.insert(index).second)) {
@@ -458,16 +469,30 @@ void Solver::TabuSearch(const int &order) {               //check:yes.      两个
                     }
                 }
             }
+
+
+            //test
+            cout << "The WServicenodes are : ";
             unordered_map<int, int>::iterator m;
             unordered_set<int>::iterator s;
             m = disturbance_WClientNodes.begin();
             s = disturbance_WServiceNodes.begin();
+            for (; s != disturbance_WServiceNodes.end(); s++)cout << *s << " ";
+            cout << endl;
+            cout << "The WClientnodes are : ";
+            for (; m != disturbance_WClientNodes.end(); m++)cout << m->first << " ";
+            cout << endl;
+
+            //unordered_map<int, int>::iterator m;
+            //unordered_set<int>::iterator s;
+            m = disturbance_WClientNodes.begin();
+            s = disturbance_WServiceNodes.begin();
             for (; m != disturbance_WClientNodes.end(), s != disturbance_WServiceNodes.end(); s++, m++) {
                 int fun = updateAddFacility(*s, FsnodeTable, DistanceTable);  //添加待加入的服务节点
-                int newfun = deleteServiceNode(m->first);
-                if (newfun < bestsolu)bestsolu = newfun;
                 isServiceNode[*s] = true;
                 isServiceNode[m->first] = false;
+                int newfun = deleteServiceNode(m->first);
+                if (newfun < bestsolu)bestsolu = newfun;
                 for (int i = 0; i < centerNum; i++) {
                     if (ServiceNodes[i] == m->first) {
                         ServiceNodes[i] = *s;
@@ -475,6 +500,9 @@ void Solver::TabuSearch(const int &order) {               //check:yes.      两个
                     }
                 }
             }
+
+            //test
+
         }
         //if (disturbance_interval == 2000) {       //2000步改进不了历史最优解，进行扰动
         //    cout << "disturbance producing : " << endl;

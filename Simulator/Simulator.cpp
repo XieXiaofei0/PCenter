@@ -198,11 +198,11 @@ void Simulator::debug() {
     Task task;
     task.instSet = "";
     //task.instId = "pmed3.n100e198p10";
-    task.instId = "tsp.u1060.p50";
-    //task.randSeed = "1542992829";
+    task.instId = "tsp.u1060.p20";
+    task.randSeed = "1542992829";
     //task.randSeed = "1542975130";       //(pmed 3)
     //task.randSeed = "1542089240";       //pmed4算例：动作对都在禁忌中的随机种子
-    task.randSeed = to_string(Random::generateSeed());
+    //task.randSeed = to_string(Random::generateSeed());
     task.timeout = "200";
     //task.maxIter = "1000000000";
     task.jobNum = "1";
